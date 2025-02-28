@@ -15,7 +15,7 @@ DevSync is a project tracker application that integrates seamlessly with GitHub.
 
 1. **Clone the repository:**
    ```
-   git clone <repository-url>
+   git clone [https://github.com/AhmedIkram05/DevSync]
    cd DevSync
    ```
 2. **Set up a virtual environment:**
