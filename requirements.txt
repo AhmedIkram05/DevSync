@@ -1,0 +1,5 @@
+# Main project requirements file
+# Install backend requirements
+-r backend/requirements.txt
+
+# Add any other project-wide requirements here
