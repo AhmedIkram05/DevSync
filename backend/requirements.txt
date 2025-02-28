@@ -1,0 +1,19 @@
+# Database dependencies
+# Use psycopg2cffi which has better compatibility with newer Python versions
+psycopg2cffi==2.9.0
+python-dotenv==1.0.0
+
+# Web framework
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# Authentication
+python-jose==3.3.0
+passlib==1.7.4
+python-multipart==0.0.6
+
+# GitHub API integration
+PyGithub==2.1.1
+
+# Additional utilities
+requests==2.31.0
