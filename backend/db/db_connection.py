@@ -1,4 +1,7 @@
+# This script creates a connection to the PostgreSQL database and initialises the database schema.
+
 import os
+import glob
 from dotenv import load_dotenv
 
 # Use psycopg2cffi instead of psycopg2
@@ -36,22 +39,31 @@ def get_db_connection():
 
 def init_db():
     """
-    Initialize the database by creating tables if they don't exist
+    Initialize the database by running all migration scripts in order
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Read schema.sql file
-        with open(os.path.join(os.path.dirname(__file__), 'schema.sql'), 'r') as f:
-            sql_script = f.read()
+        # Get all migration files in order
+        migration_dir = os.path.join(os.path.dirname(__file__), 'migrations')
+        migration_files = sorted(glob.glob(os.path.join(migration_dir, '*.sql')))
+        
+        for migration_file in migration_files:
+            print(f"Applying migration: {os.path.basename(migration_file)}")
             
-        # Execute the SQL script
-        cursor.execute(sql_script)
-        conn.commit()
-        print("Database schema initialized successfully")
+            # Read migration file
+            with open(migration_file, 'r') as f:
+                sql_script = f.read()
+                
+            # Execute the SQL script
+            cursor.execute(sql_script)
+            conn.commit()
+            
+        print("Database initialization completed successfully")
+            
     except Exception as e:
-        print(f"Error initializing database schema: {e}")
+        print(f"Error initializing database: {e}")
         conn.rollback()
     finally:
         cursor.close()
