@@ -1,43 +1,39 @@
-# DevSync Project Tracker with GitHub Integration
+# DevSync
+
+DevSync is a development synchronization platform that integrates database management, GitHub integration, and task tracking into one unified system.
+
 ## Overview
 
-DevSync is a project tracker application that integrates seamlessly with GitHub. It combines efficient task management with automated GitHub repository linking, empowering teams to streamline their workflows.
+DevSync streamlines collaboration by connecting your database, GitHub repositories, and local development environment. It is designed to make it easy for teams to manage tasks, track issues, and synchronize changes.
 
 ## Features
 
-- **Task Management**: Create, assign, and track tasks with deadlines and progress updates.
-- **Project Organization**: Manage multiple projects and their associated tasks effortlessly.
-- **GitHub Integration**: Automatically sync issues and pull requests with GitHub.
-- **Database Support**: Built with PostgreSQL and SQLAlchemy for reliable data handling.
-- **Secure Authentication**: Utilize JWT tokens to ensure secure access.
+- **Database Integration**: Connect to a Render PostgreSQL database with ease.
+- **GitHub Integration**: Seamless OAuth configuration and repository tracking.
+- **Task Management**: Create, update, and monitor tasks and projects.
+- **Scalable Architecture**: Indexed database schema for optimal performance.
 
 ## Installation
 
-1. **Clone the repository:**
-   ```
-   git clone [https://github.com/AhmedIkram05/DevSync]
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ahmedikram/DevSync.git
    cd DevSync
    ```
-2. **Set up a virtual environment:**
+2. Setup your Python virtual environment:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
    ```
-   python -m venv venv
-   #MacOS: source venv/bin/activate  # Windows: venv\Scripts\activate
+3. Install dependencies:
+   ```bash
+   pip install -r backend/requirements.txt
    ```
-3. **Install dependencies:**
-   ```
-   pip install -r requirements.txt
-   ```
-4. **Configure Environment Variables:**
-   Create a `.env` file in the root directory with the necessary configurations (see provided `.env` example).
 
-## Database Setup
+## Usage
 
-Initialize the PostgreSQL database and create tables by running:
-```
-python backend/db/db_connection.py
-```
-This executes the SQL schema defined in `backend/db/schema.sql`.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+- **Database Migrations**: Apply SQL migration files in the `backend/db/migrations` directory.
+- **Testing Connection**: Run the provided script to test the database connection:
+   ```bash
+   python backend/db/scripts/test_connection.py
+   ``` 
