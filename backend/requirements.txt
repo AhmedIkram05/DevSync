@@ -6,10 +6,15 @@ python-dotenv==1.0.0
 # Web framework
 fastapi==0.104.1
 uvicorn==0.24.0
+Flask==2.3.3
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+flask-jwt-extended==4.5.3
 
 # Authentication
 python-jose==3.3.0
 passlib==1.7.4
+bcrypt==4.1.2
 python-multipart==0.0.6
 
 # GitHub API integration
