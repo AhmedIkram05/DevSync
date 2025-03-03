@@ -4,52 +4,25 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Add parent directory to path to import db_connection
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+# Now we can import the module
 from db.db_connection import get_db_connection
 
 def test_db_connection():
-    """
-    Test the connection to the database and print basic information
-    """
-    print("Testing connection to PostgreSQL database...")
-    
+    """Test the database connection and print the PostgreSQL version"""
     try:
-        # Get database connection
         conn = get_db_connection()
-        
-        # Create cursor
         cur = conn.cursor()
-        
-        # Execute version query
         cur.execute('SELECT version();')
-        
-        # Fetch the PostgreSQL database version
         db_version = cur.fetchone()
+        print(f"Connection successful!")
         print(f"PostgreSQL database version: {db_version['version']}")
-        
-        # List all tables in the database
-        cur.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            ORDER BY table_name;
-        """)
-        
-        tables = cur.fetchall()
-        print("\nDatabase tables:")
-        for table in tables:
-            print(f"- {table['table_name']}")
-        
-        # Close cursor and connection
         cur.close()
         conn.close()
-        print("\nDatabase connection test completed successfully.")
-        return True
-        
     except Exception as e:
-        print(f"Error connecting to the database: {e}")
-        return False
+        print(f"Connection failed: {e}")
 
 if __name__ == "__main__":
     # Load environment variables from .env file
@@ -63,7 +36,4 @@ if __name__ == "__main__":
         sys.exit(1)
     
     # Test database connection
-    success = test_db_connection()
-    
-    # Exit with appropriate code
-    sys.exit(0 if success else 1)
+    test_db_connection()

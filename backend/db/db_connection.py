@@ -4,18 +4,12 @@ import os
 import glob
 from dotenv import load_dotenv
 
-# Use psycopg2cffi instead of psycopg2
+# Only use psycopg2cffi which works with Python 3.13
 try:
-    # Try to use psycopg2cffi which works better with newer Python versions
     from psycopg2cffi import connect
     from psycopg2cffi.extras import RealDictCursor
 except ImportError:
-    try:
-        # Fall back to psycopg2 if psycopg2cffi is not available
-        from psycopg2 import connect
-        from psycopg2.extras import RealDictCursor
-    except ImportError:
-        raise ImportError("Neither psycopg2cffi nor psycopg2 are available. Please install one of them.")
+    raise ImportError("psycopg2cffi is not available. Please install it with: pip install psycopg2cffi")
 
 # Load environment variables
 load_dotenv()
