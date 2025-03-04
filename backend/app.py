@@ -7,6 +7,8 @@ from flask_jwt_extended import JWTManager
 from models import db, User, Task, GitHubToken, GitHubRepository, TaskGitHubLink, Comment, Notification
 from config import Config
 from routes.auth import auth_bp
+from routes.tasks import tasks_bp
+from routes.admin import admin_bp
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -28,6 +30,8 @@ def create_app(config_class=Config):
     
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(tasks_bp, url_prefix='/api/tasks')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
     
     @app.route('/')
     def index():
