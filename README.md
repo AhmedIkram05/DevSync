@@ -31,9 +31,3 @@ DevSync streamlines collaboration by connecting your database, GitHub repositori
    ```
 
 ## Usage
-
-- **Database Migrations**: Apply SQL migration files in the `backend/db/migrations` directory.
-- **Testing Connection**: Run the provided script to test the database connection:
-   ```bash
-   python backend/db/scripts/test_connection.py
-   ``` 

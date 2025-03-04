@@ -1,9 +1,9 @@
 # Admin-specific routes with RBAC protection
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
-from models import db, User
-from auth.rbac import require_permission, require_role, Role
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from src.db.models import db, User
+from src.auth.rbac import require_permission, require_role, Role
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -61,7 +61,6 @@ def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     
     # Prevent deleting yourself
-    from flask_jwt_extended import get_jwt_identity
     current_user_id = get_jwt_identity()['user_id']
     if user_id == current_user_id:
         return jsonify({'message': 'Cannot delete yourself'}), 403
