@@ -1,3 +1,5 @@
+# This file contains the routes for user authentication
+
 from flask import Blueprint, request, jsonify, make_response, current_app
 from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt, 

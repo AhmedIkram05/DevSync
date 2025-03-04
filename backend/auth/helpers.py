@@ -1,3 +1,5 @@
+# This file contains helper functions for authentication
+
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from flask_jwt_extended import create_access_token, create_refresh_token
