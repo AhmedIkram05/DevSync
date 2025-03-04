@@ -5,10 +5,10 @@ import sys
 from dotenv import load_dotenv
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
 # Now we can import the module
-from db.db_connection import get_db_connection
+from src.config.database import get_db_connection
 
 def test_db_connection():
     """Test the database connection and print the PostgreSQL version"""

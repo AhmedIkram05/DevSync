@@ -1,9 +1,9 @@
 # Task management routes with RBAC applied
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, Task, User
-from auth.rbac import require_permission, require_role, Role
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from src.db.models import db, Task, User
+from src.auth.rbac import require_permission, require_role, Role
 
 tasks_bp = Blueprint('tasks', __name__)
 
