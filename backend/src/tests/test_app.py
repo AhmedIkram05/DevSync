@@ -11,11 +11,12 @@ import sys
 from dotenv import load_dotenv
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+sys.path.insert(0, project_root)
 
-# Import modules to test
+# Import modules using absolute imports
 from src.config.database import get_db_connection
-from src.db.models import db, User, Task
+from src.db.models import db, User, Task, Project  # Added Project to imports
 from src.app import create_app
 
 def test_db_connection():
@@ -55,6 +56,8 @@ def test_models():
         assert hasattr(User, 'email')
         assert hasattr(Task, 'title')
         assert hasattr(Task, 'description')
+        assert hasattr(Project, 'name')  # Add Project check
+        assert hasattr(Project, 'status')  # Add Project check
         print("✅ Models imported successfully")
         return True
     except Exception as e:

@@ -2,9 +2,9 @@
 
 from flask import request, jsonify
 from flask_jwt_extended import get_jwt_identity
-from src.db.models import db, User
-from src.auth.helpers import hash_password
-from src.api.validators.user_validator import validate_user_data, validate_profile_update
+from ...db.models import db, User  # Changed to relative import
+from ...auth.helpers import hash_password, verify_password  # Changed to relative import
+from ..validators.user_validator import validate_user_data, validate_profile_update  # Changed to relative import
 
 def get_all_users():
     """Controller function to get all users"""

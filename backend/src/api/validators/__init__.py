@@ -6,8 +6,8 @@ from .task_validator import validate_task_data
 from .comment_validator import validate_comment_data
 from .admin_validator import validate_system_settings, validate_user_role_update
 from .github_validator import (
-    validate_github_auth, 
-    validate_github_repo_data, 
+    validate_github_auth,
+    validate_github_repo_data,
     validate_github_webhook_payload,
     validate_task_github_link
 )

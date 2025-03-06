@@ -2,8 +2,8 @@
 
 from flask import jsonify, request
 from flask_jwt_extended import get_jwt_identity
-from src.db.models import db, Notification, User
-from src.api.validators.notification_validator import validate_notification_data
+from ...db.models import db, Notification, User  # Changed to relative import
+from ..validators.notification_validator import validate_notification_data  # Changed to relative import
 
 def get_user_notifications():
     """Controller function to get all notifications for the current user"""

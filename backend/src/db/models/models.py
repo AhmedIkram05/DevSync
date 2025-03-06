@@ -1,9 +1,13 @@
 # This file contains the models for the database tables.
 
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from ..db_connection import db
 
-db = SQLAlchemy()
+# User-Project association table for many-to-many relationship
+project_members = db.Table('project_members',
+    db.Column('project_id', db.Integer, db.ForeignKey('projects.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True)
+)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -13,6 +17,7 @@ class User(db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False)
+    github_username = db.Column(db.String(100))  # Add this line
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -21,6 +26,7 @@ class User(db.Model):
     github_tokens = db.relationship('GitHubToken', backref='user', lazy=True)
     comments = db.relationship('Comment', backref='user', lazy=True)
     notifications = db.relationship('Notification', backref='user', lazy=True)
+    projects = db.relationship('Project', secondary=project_members, backref='team_members', lazy='dynamic')
 
     def __repr__(self):
         return f'<User {self.name}>'
@@ -38,6 +44,7 @@ class Task(db.Model):
     deadline = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
     
     # Relationships
     github_links = db.relationship('TaskGitHubLink', backref='task', lazy=True)
@@ -111,3 +118,22 @@ class Notification(db.Model):
 
     def __repr__(self):
         return f'<Notification {self.id} for User {self.user_id}>'
+
+class Project(db.Model):
+    """Project model representing development projects"""
+    __tablename__ = 'projects'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    status = db.Column(db.String(20), default='active')
+    github_repo = db.Column(db.String(255))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tasks = db.relationship('Task', backref='project', lazy=True)
+    
+    def __repr__(self):
+        return f'<Project {self.name}>'

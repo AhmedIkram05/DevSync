@@ -2,11 +2,12 @@
 
 from flask import request
 from flask_jwt_extended import jwt_required
-from src.api.controllers.dashboard_controller import (
-    get_user_dashboard, get_project_dashboard
+from ..controllers.dashboard_controller import (
+    get_user_dashboard,
+    get_project_dashboard
 )
-from src.api.middlewares import role_required
-from src.auth.rbac import Role
+from ..middlewares import role_required
+from ...auth.rbac import Role
 
 def register_routes(bp):
     """Register all dashboard routes with the provided Blueprint"""

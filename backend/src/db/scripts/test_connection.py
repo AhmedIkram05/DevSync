@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
 # Now we can import the module
-from src.config.database import get_db_connection
+from src.config.database import get_db_connection  # Changed to absolute import since we added the project root to path
 
 def test_db_connection():
     """Test the database connection and print the PostgreSQL version"""

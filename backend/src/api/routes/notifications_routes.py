@@ -1,13 +1,15 @@
-"""User notifications API routes"""
+"""Notification API routes"""
 
 from flask import request
 from flask_jwt_extended import jwt_required
-from src.api.controllers.notifications_controller import (
-    get_user_notifications, mark_notification_read,
-    mark_all_notifications_read, delete_notification,
-    create_notification
+from ..controllers.notifications_controller import (
+    get_user_notifications,
+    create_notification,
+    mark_notification_read,
+    mark_all_notifications_read,
+    delete_notification
 )
-from src.api.middlewares.validation_middleware import validate_json
+from ..middlewares.validation_middleware import validate_json
 
 def register_routes(bp):
     """Register all notification routes with the provided Blueprint"""
@@ -15,7 +17,7 @@ def register_routes(bp):
     @bp.route('/notifications', methods=['GET'])
     @jwt_required()
     def notifications_list():
-        """Route to get all notifications for current user"""
+        """Route to get all notifications for user"""
         return get_user_notifications()
     
     @bp.route('/notifications', methods=['POST'])

@@ -28,6 +28,11 @@ def validate_github_repo_data(data):
     if not data['repository_url'].startswith('https://github.com/'):
         return jsonify({'message': 'Invalid GitHub repository URL'}), 400
     
+    # Validate webhook secret if provided
+    if 'webhook_secret' in data and data['webhook_secret']:
+        if len(data['webhook_secret']) < 16:
+            return jsonify({'message': 'Webhook secret should be at least 16 characters for security'}), 400
+    
     return None
 
 def validate_github_webhook_payload(data):

@@ -2,8 +2,8 @@
 
 from flask import jsonify
 from flask_jwt_extended import get_jwt_identity, get_jwt
-from src.db.models import db, User, Task, Project
-from src.auth.rbac import Role
+from ...db.models import db, User, Task, Project  # Changed to relative import
+from ...auth.rbac import Role  # Changed to relative import
 from datetime import datetime, timedelta
 
 def get_user_dashboard():

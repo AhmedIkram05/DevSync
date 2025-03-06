@@ -1,14 +1,18 @@
-"""User management API routes"""
+"""User API routes"""
 
 from flask import request
 from flask_jwt_extended import jwt_required
-from src.api.controllers.users_controller import (
-    get_all_users, get_user_by_id, update_user,
-    delete_user, get_current_user_profile, update_current_user_profile
+from ..controllers.users_controller import (
+    get_all_users,
+    get_user_by_id,
+    update_user,
+    delete_user,
+    get_current_user_profile,
+    update_current_user_profile
 )
-from src.api.middlewares.validation_middleware import validate_json
-from src.api.middlewares import admin_required, role_required
-from src.auth.rbac import Role
+from ..middlewares.validation_middleware import validate_json
+from ..middlewares import admin_required, role_required
+from ...auth.rbac import Role
 
 def register_routes(bp):
     """Register all user routes with the provided Blueprint"""
@@ -29,7 +33,7 @@ def register_routes(bp):
     @bp.route('/users/<int:user_id>', methods=['PUT'])
     @jwt_required()
     @admin_required()
-    @validate_json
+    @validate_json()  # Fixed: added parentheses
     def update_user_route(user_id):
         """Route to update a user (admin only)"""
         return update_user(user_id)
@@ -49,7 +53,7 @@ def register_routes(bp):
     
     @bp.route('/profile', methods=['PUT'])
     @jwt_required()
-    @validate_json
+    @validate_json()  # Fixed: added parentheses
     def update_profile():
         """Route to update current user's profile"""
         return update_current_user_profile()

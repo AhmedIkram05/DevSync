@@ -2,9 +2,9 @@
 
 from flask import request, jsonify
 from flask_jwt_extended import get_jwt_identity, get_jwt
-from src.db.models import db, Comment, Task, User
-from src.auth.rbac import Role
-from src.api.validators.comment_validator import validate_comment_data
+from ...db.models import db, Comment, Task, User  # Changed to relative import
+from ...auth.rbac import Role  # Changed to relative import
+from ..validators.comment_validator import validate_comment_data  # Changed to relative import
 
 def get_task_comments(task_id):
     """Controller function to get all comments for a task"""

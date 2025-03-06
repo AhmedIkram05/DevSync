@@ -1,11 +1,13 @@
-# Auth package initialization
+"""Authentication package initialization"""
 
 from .helpers import hash_password, verify_password, generate_tokens
-from .auth import auth_bp
+from .rbac import Role, require_role, require_permission
 
 __all__ = [
-    'hash_password', 
-    'verify_password', 
+    'hash_password',
+    'verify_password',
     'generate_tokens',
-    'auth_bp'
+    'Role',
+    'require_role',
+    'require_permission'
 ]

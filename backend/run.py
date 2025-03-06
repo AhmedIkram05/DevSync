@@ -1,14 +1,21 @@
 """
-Entry point for running the DevSync Flask application
+Development server runner
 """
 from dotenv import load_dotenv
+import os
+import sys
 
-# Load environment variables from .env file
-load_dotenv()
+# Add the backend directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from src.app import create_app
 
-app = create_app()
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+if __name__ == '__main__':
+    # Load environment variables
+    load_dotenv()
+    
+    # Create and run the app
+    app = create_app()
+    # Use port 5001 instead of 5000 to avoid conflicts with AirPlay on macOS
+    port = int(os.environ.get("PORT", 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)

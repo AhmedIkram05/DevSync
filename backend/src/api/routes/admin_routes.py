@@ -1,14 +1,15 @@
-"""Admin panel API routes"""
+"""Admin API routes"""
 
 from flask import request
 from flask_jwt_extended import jwt_required
-from src.api.controllers.admin_controller import (
-    get_system_stats, get_system_settings, 
+from ..controllers.admin_controller import (
+    get_system_stats,
+    get_system_settings,
     update_system_settings
 )
-from src.api.middlewares import admin_required
-from src.api.middlewares.validation_middleware import validate_json
-from src.api.middlewares.rate_limiter import rate_limit
+from ..middlewares import admin_required
+from ..middlewares.validation_middleware import validate_json
+from ..middlewares.rate_limiter import rate_limit
 
 def register_routes(bp):
     """Register all admin routes with the provided Blueprint"""
