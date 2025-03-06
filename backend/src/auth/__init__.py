@@ -1,7 +1,11 @@
-# This file is used to import all the helper functions from the helpers.py file
+# Auth package initialization
 
 from .helpers import hash_password, verify_password, generate_tokens
+from .auth import auth_bp
 
-__all__ = ['hash_password', 'verify_password', 'generate_tokens']
-
-# Auth package initialisation
+__all__ = [
+    'hash_password', 
+    'verify_password', 
+    'generate_tokens',
+    'auth_bp'
+]
