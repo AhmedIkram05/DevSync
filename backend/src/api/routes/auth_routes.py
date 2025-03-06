@@ -3,9 +3,9 @@
 from flask import request
 from flask_jwt_extended import jwt_required
 # Import the actual authentication logic from auth folder
-from src.auth.auth import login, register_user, refresh_token, logout_user
-from src.api.middlewares.validation_middleware import validate_json
-from src.api.validators.auth_validator import validate_login_data, validate_registration_data
+from ...auth.auth import login, register_user, refresh_token, logout_user  # Changed to relative import
+from ..middlewares.validation_middleware import validate_json  # Changed to relative import
+from ..validators.auth_validator import validate_login_data, validate_registration_data  # Changed to relative import
 
 def register_routes(bp):
     """Register all authentication routes with the provided Blueprint"""
@@ -46,5 +46,5 @@ def register_routes(bp):
     @jwt_required()
     def me():
         """Route to get current authenticated user"""
-        from src.api.controllers.users_controller import get_current_user_profile
+        from ..controllers.users_controller import get_current_user_profile  # Changed to relative import
         return get_current_user_profile()

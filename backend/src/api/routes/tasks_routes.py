@@ -1,14 +1,17 @@
-"""Task management API routes"""
+"""Task API routes"""
 
 from flask import request
 from flask_jwt_extended import jwt_required
-from src.api.controllers.tasks_controller import (
-    get_all_tasks, get_task_by_id, create_new_task,
-    update_task_by_id, delete_task_by_id
+from ..controllers.tasks_controller import (
+    get_all_tasks,
+    get_task_by_id,
+    create_new_task,
+    update_task_by_id,
+    delete_task_by_id
 )
-from src.api.middlewares.validation_middleware import validate_json, validate_params
-from src.api.middlewares import role_required
-from src.auth.rbac import Role
+from ..middlewares.validation_middleware import validate_json, validate_params
+from ..middlewares import role_required
+from ...auth.rbac import Role
 
 def register_routes(bp):
     """Register all task routes with the provided Blueprint"""
@@ -21,7 +24,7 @@ def register_routes(bp):
     
     @bp.route('/tasks', methods=['POST'])
     @jwt_required()
-    @validate_json
+    @validate_json()  # Fixed: added parentheses
     def create_task():
         """Route to create a new task"""
         return create_new_task()
@@ -34,7 +37,7 @@ def register_routes(bp):
     
     @bp.route('/tasks/<int:task_id>', methods=['PUT'])
     @jwt_required()
-    @validate_json
+    @validate_json()  # Fixed: added parentheses
     def update_task(task_id):
         """Route to update a task"""
         return update_task_by_id(task_id)

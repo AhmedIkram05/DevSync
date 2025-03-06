@@ -3,12 +3,13 @@
 from flask import Blueprint, request, jsonify, make_response, current_app
 from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt, 
-    set_access_cookies, set_refresh_cookies, unset_jwt_cookies
+    set_access_cookies, set_refresh_cookies, unset_jwt_cookies,
+    create_access_token  # Added missing import
 )
 from sqlalchemy.exc import IntegrityError
 
-from models import db, User
-from auth.helpers import hash_password, verify_password, generate_tokens
+from ..db.models import db, User  # Fix import path
+from .helpers import hash_password, verify_password, generate_tokens
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -141,3 +142,67 @@ def me():
             'role': user.role
         }
     })
+
+def register_user():
+    """Function to register a new user"""
+    data = request.get_json()
+    
+    # Create new user
+    try:
+        new_user = User(
+            name=data['name'],
+            email=data['email'],
+            password=hash_password(data['password']),
+            role=data['role']
+        )
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Generate tokens for the new user
+        tokens = generate_tokens(new_user.id, {'role': new_user.role})
+        
+        # Create response with tokens
+        resp = jsonify({
+            'message': 'User registered successfully',
+            'user': {
+                'id': new_user.id,
+                'name': new_user.name,
+                'email': new_user.email,
+                'role': new_user.role
+            }
+        })
+        
+        # Set cookies
+        set_access_cookies(resp, tokens['access_token'])
+        set_refresh_cookies(resp, tokens['refresh_token'])
+        
+        return resp, 201
+    
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'message': 'An error occurred while registering the user'}), 500
+
+def refresh_token():
+    """Function to refresh an access token"""
+    current_user = get_jwt_identity()
+    
+    # Create new access token
+    access_token = create_access_token(identity=current_user)
+    
+    # Create response
+    resp = jsonify({'message': 'Token refreshed successfully'})
+    
+    # Set new access cookie
+    set_access_cookies(resp, access_token)
+    
+    return resp
+
+def logout_user():
+    """Function to log out a user"""
+    resp = jsonify({'message': 'Logout successful'})
+    
+    # Remove JWT cookies
+    unset_jwt_cookies(resp)
+    
+    return resp

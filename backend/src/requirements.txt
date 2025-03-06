@@ -2,12 +2,14 @@
 # Use psycopg2cffi which has better compatibility with newer Python versions
 psycopg2cffi==2.9.0
 python-dotenv==1.0.0
+psycopg2-binary==2.9.9  # Added for database.py compatibility
 
 # Web framework
 fastapi==0.104.1
 uvicorn==0.24.0
 Flask==2.3.3
 Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.27
 Flask-Migrate==4.0.5
 flask-jwt-extended==4.5.3
 

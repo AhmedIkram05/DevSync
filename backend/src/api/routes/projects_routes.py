@@ -1,16 +1,20 @@
-"""Project management API routes"""
+"""Project API routes"""
 
 from flask import request
 from flask_jwt_extended import jwt_required
-from src.api.controllers.projects_controller import (
-    get_all_projects, get_project_by_id, create_project,
-    update_project, delete_project, get_project_tasks
+from ..controllers.projects_controller import (
+    get_all_projects,
+    get_project_by_id,
+    create_project,
+    update_project,
+    delete_project,
+    get_project_tasks
 )
-from src.api.middlewares.validation_middleware import validate_json, validate_params
-from src.api.middlewares import role_required
-from src.api.middlewares.api_usage_logger import log_api_usage
-from src.api.middlewares.request_logger import log_request
-from src.auth.rbac import Role
+from ..middlewares.validation_middleware import validate_json, validate_params
+from ..middlewares import role_required
+from ..middlewares.api_usage_logger import log_api_usage
+from ..middlewares.request_logger import log_request
+from ...auth.rbac import Role
 
 def register_routes(bp):
     """Register all project routes with the provided Blueprint"""

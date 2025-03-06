@@ -1,12 +1,25 @@
-# This file is used to import all the models from the models folder
+"""
+Database models package initialization.
+Import and expose all models for easy access.
+"""
 
-from .models import (
-    db,
-    User,
-    Task,
-    GitHubToken,
-    GitHubRepository,
-    TaskGitHubLink,
-    Comment,
-    Notification
-)
+from flask_sqlalchemy import SQLAlchemy
+
+# Initialize the SQLAlchemy instance
+db = SQLAlchemy()
+
+# Import models to make them available when importing the package
+from .models import User, Task, Project, Comment, Notification, GitHubToken, GitHubRepository, TaskGitHubLink
+
+# Export all models for easy importing
+__all__ = [
+    'db',
+    'User',
+    'Task',
+    'Project',
+    'Comment',
+    'Notification',
+    'GitHubToken',
+    'GitHubRepository',
+    'TaskGitHubLink'
+]

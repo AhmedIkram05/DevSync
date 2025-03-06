@@ -2,9 +2,9 @@
 
 from flask import request, jsonify
 from flask_jwt_extended import get_jwt_identity, get_jwt
-from src.db.models import db, Project, Task, User
-from src.auth.rbac import Role
-from src.api.validators.project_validator import validate_project_data
+from ...db.models import db, Project, Task, User  # Changed to relative import
+from ...auth.rbac import Role  # Changed to relative import
+from ..validators.project_validator import validate_project_data  # Changed to relative import
 
 def get_all_projects():
     """Controller function to get all projects visible to the user"""

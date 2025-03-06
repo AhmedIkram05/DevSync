@@ -2,9 +2,9 @@
 
 from flask import request, jsonify
 from flask_jwt_extended import get_jwt_identity, get_jwt
-from src.db.models import db, Task, User
-from src.auth.rbac import Role
-from src.api.validators.task_validator import validate_task_data
+from ...db.models import db, Task, User  # Changed to relative import
+from ...auth.rbac import Role  # Changed to relative import
+from ..validators.task_validator import validate_task_data  # Changed to relative import
 
 def get_all_tasks():
     """Controller function to get all tasks based on user role and filters"""

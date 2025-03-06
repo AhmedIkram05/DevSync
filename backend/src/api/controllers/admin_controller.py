@@ -1,8 +1,8 @@
 # Admin controller - business logic for admin-only operations
 
 from flask import jsonify, request
-from src.db.models import db, User, Project, Task
-from src.api.validators.admin_validator import validate_system_settings
+from ...db.models import db, User, Project, Task  # Changed to relative import
+from ..validators.admin_validator import validate_system_settings  # Changed to relative import
 
 def get_system_stats():
     """Controller function to get system statistics for admin dashboard"""

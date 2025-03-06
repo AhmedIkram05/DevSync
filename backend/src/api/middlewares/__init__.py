@@ -3,14 +3,14 @@
 from functools import wraps
 from flask import jsonify
 from flask_jwt_extended import get_jwt, verify_jwt_in_request
-from src.auth.rbac import Role
+from ...auth.rbac import Role  # Changed to relative import
 
-# Import all middleware modules
-from src.api.middlewares.request_logger import log_request, apply_request_logger
-from src.api.middlewares.error_handler import APIError, register_error_handlers
-from src.api.middlewares.api_usage_logger import log_api_usage, apply_api_usage_logger
-from src.api.middlewares.rate_limiter import rate_limit, apply_global_rate_limit
-from src.api.middlewares.validation_middleware import validate_json, validate_schema, validate_params
+# Import all middleware modules - changed to relative imports
+from .request_logger import log_request, apply_request_logger
+from .error_handler import APIError, register_error_handlers
+from .api_usage_logger import log_api_usage, apply_api_usage_logger
+from .rate_limiter import rate_limit, apply_global_rate_limit
+from .validation_middleware import validate_json, validate_schema, validate_params
 
 def admin_required():
     """Middleware to ensure the user has admin role"""
