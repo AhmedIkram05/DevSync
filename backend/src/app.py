@@ -4,11 +4,11 @@ from datetime import timedelta
 from flask import Flask
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
+from flask_cors import CORS
 from src.db.models import db
 from src.config.config import get_config
-from src.api.routes.auth import auth_bp
-from src.api.routes.tasks import tasks_bp
-from src.api.routes.admin import admin_bp
+from src.api import init_app as init_api
+from src.api.middlewares import setup_middlewares
 
 def create_app(config_class=None):
     app = Flask(__name__)
@@ -26,11 +26,13 @@ def create_app(config_class=None):
     db.init_app(app)
     migrate = Migrate(app, db)
     jwt = JWTManager(app)
+    CORS(app)
     
-    # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(tasks_bp, url_prefix='/api/tasks')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    # Initialize API routes (including auth routes)
+    init_api(app)
+    
+    # Setup middlewares (error handlers, logging, rate limiting)
+    setup_middlewares(app)
     
     @app.route('/')
     def index():
