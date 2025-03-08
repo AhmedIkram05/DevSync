@@ -13,11 +13,13 @@ if __name__ == '__main__':
     from src.config.config import get_config
     from src.api import init_app as init_api
     from src.api.middlewares import setup_middlewares
+    from src.socketio_server import init_socketio
 else:
     from .db.models import db
     from .config.config import get_config
     from .api import init_app as init_api
     from .api.middlewares import setup_middlewares
+    from .socketio_server import init_socketio
 
 from datetime import timedelta
 from flask import Flask
@@ -49,12 +51,16 @@ def create_app(config_class=None):
     # Setup middlewares (error handlers, logging, rate limiting)
     setup_middlewares(app)
     
+    # Initialize Socket.IO
+    socketio = init_socketio(app)
+    
     @app.route('/')
     def index():
         return "DevSync API is running"
     
-    return app
+    return app, socketio
 
 if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True)
+    app, socketio = create_app()
+    # Use socketio.run instead of app.run
+    socketio.run(app, debug=True, host='0.0.0.0', port=8000)

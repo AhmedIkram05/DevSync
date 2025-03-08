@@ -9,7 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 # Import models to make them available when importing the package
-from .models import User, Task, Project, Comment, Notification, GitHubToken, GitHubRepository, TaskGitHubLink
+from .models import User, Task, Project, Comment, GitHubToken, GitHubRepository, TaskGitHubLink, Notification
 
 # Export all models for easy importing
 __all__ = [

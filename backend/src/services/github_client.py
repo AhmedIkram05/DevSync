@@ -9,7 +9,7 @@ class GitHubClient:
     """Client for the GitHub API"""
     
     BASE_API_URL = "https://api.github.com"
-    AUTH_URL = "https://github.com/login/oauth/authorize"
+    AUTH_URL = "https://github.com/login/oauth/authorise"
     TOKEN_URL = "https://github.com/login/oauth/access_token"
     
     def __init__(self, access_token=None):
