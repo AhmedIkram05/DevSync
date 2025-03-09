@@ -2,7 +2,7 @@
 Database connection module that provides the SQLAlchemy database instance
 """
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base  # Updated import path
 
 # Create a single SQLAlchemy instance to be used across the application
 db = SQLAlchemy()

@@ -3,10 +3,8 @@ Database models package initialization.
 Import and expose all models for easy access.
 """
 
-from flask_sqlalchemy import SQLAlchemy
-
-# Initialize the SQLAlchemy instance
-db = SQLAlchemy()
+# Import the db instance instead of creating a new one
+from ..db_connection import db
 
 # Import models to make them available when importing the package
 from .models import User, Task, Project, Comment, GitHubToken, GitHubRepository, TaskGitHubLink, Notification
