@@ -2,6 +2,7 @@
 
 import os
 import sys
+from dotenv import load_dotenv
 
 # Add the backend directory to the Python path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
@@ -27,23 +28,66 @@ from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
+# Load environment variables
+load_dotenv()
+
 def create_app(config_class=None):
     app = Flask(__name__)
     app.config.from_object(config_class or get_config())
     
-    # JWT Configuration
+    # Configure database
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///devsync.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Configure JWT
+    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(app.config.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30)))
     app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
     app.config["JWT_TOKEN_LOCATION"] = ["cookies", "headers"]
-    app.config["JWT_COOKIE_SECURE"] = False  # Set to True in production with HTTPS
+    
+    # In production, enable secure cookies if using HTTPS
+    if os.getenv('FLASK_ENV') == 'production':
+        app.config["JWT_COOKIE_SECURE"] = True
+    else:
+        app.config["JWT_COOKIE_SECURE"] = False
+        
     app.config["JWT_COOKIE_CSRF_PROTECT"] = True
     app.config["JWT_COOKIE_SAMESITE"] = "Lax"  # Recommended for CSRF protection
+    
+    # Apply any override configurations
+    if config_class:
+        app.config.update(config_class)
     
     # Initialize extensions
     db.init_app(app)
     migrate = Migrate(app, db)
     jwt = JWTManager(app)
     CORS(app)
+    
+    # JWT error handlers
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        return {
+            'status': 401,
+            'message': 'The authentication token has expired',
+            'error': 'token_expired'
+        }, 401
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error):
+        return {
+            'status': 401,
+            'message': 'Invalid authentication token',
+            'error': 'token_invalid'
+        }, 401
+
+    @jwt.unauthorized_loader
+    def missing_token_callback(error):
+        return {
+            'status': 401,
+            'message': 'Authentication token is missing',
+            'error': 'authorization_required'
+        }, 401
     
     # Initialize API routes (including auth routes)
     init_api(app)

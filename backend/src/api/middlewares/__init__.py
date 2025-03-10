@@ -1,4 +1,4 @@
-"""API middlewares package initialization"""
+"""API middlewares package initialisation"""
 
 from functools import wraps
 from flask import jsonify
@@ -39,7 +39,7 @@ def role_required(allowed_roles):
     return wrapper
 
 def setup_middlewares(app):
-    """Initialize and register all middlewares with the Flask app"""
+    """Initialise and register all middlewares with the Flask app"""
     # Register error handlers
     register_error_handlers(app)
     

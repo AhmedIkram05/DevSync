@@ -18,7 +18,7 @@ class User(db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    github_username = db.Column(db.String(100))  # Add this line
+    github_username = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Fix __table_args__ by creating a tuple containing all indices
@@ -32,7 +32,8 @@ class User(db.Model):
     assigned_tasks = db.relationship('Task', backref='assignee', foreign_keys='Task.assigned_to')
     github_tokens = db.relationship('GitHubToken', backref='user', lazy=True)
     comments = db.relationship('Comment', backref='user', lazy=True)
-    notifications = db.relationship('Notification', backref='user', lazy=True)
+    # Fix: Change the backref name to resolve the conflict
+    notifications = db.relationship('Notification', backref='user_account', lazy=True)
     projects = db.relationship('Project', secondary=project_members, backref='team_members', lazy='dynamic')
 
     def __repr__(self):
@@ -148,9 +149,6 @@ class Notification(db.Model):
         Index('idx_notifications_task_id', 'task_id'),
         Index('idx_notifications_user_id', 'user_id'),
     )
-
-    # Relationships
-    user = db.relationship("User", back_populates="notifications")
 
     def __repr__(self):
         return f"<Notification(id={self.id}, user_id={self.user_id}, type={self.notification_type})>"

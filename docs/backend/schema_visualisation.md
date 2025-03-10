@@ -1,4 +1,4 @@
-# DevSync Database Schema Visualization
+# DevSync Database Schema Visualisation
 
 This document provides a visual representation of the DevSync database schema using ASCII art.
 

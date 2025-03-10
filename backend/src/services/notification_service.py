@@ -1,8 +1,8 @@
 from flask_socketio import emit
 from datetime import datetime
-from ..socketio_server import connected_users, project_rooms
-from ..db.models.notification import Notification
-from ..db.db_connection import db
+from src.socketio_server import connected_users, project_rooms
+from src.db.models import Notification
+from src.db.db_connection import db
 
 class NotificationService:
     @staticmethod
@@ -24,7 +24,7 @@ class NotificationService:
             title=title,
             message=message,
             reference_id=reference_id,
-            read=False,
+            is_read=False,
             created_at=datetime.utcnow()
         )
         
@@ -83,7 +83,7 @@ class NotificationService:
         """Mark a notification as read"""
         notification = Notification.query.filter_by(id=notification_id, user_id=user_id).first()
         if notification:
-            notification.read = True
+            notification.is_read = True   # changed from notification.read
             notification.read_at = datetime.utcnow()
             db.session.commit()
             return True
@@ -93,8 +93,8 @@ class NotificationService:
     def mark_all_as_read(user_id):
         """Mark all user's notifications as read"""
         now = datetime.utcnow()
-        Notification.query.filter_by(user_id=user_id, read=False).update({
-            'read': True, 
+        Notification.query.filter_by(user_id=user_id, is_read=False).update({  # changed filter key
+            'is_read': True,  # changed update key
             'read_at': now
         })
         db.session.commit()
@@ -103,7 +103,7 @@ class NotificationService:
     @staticmethod
     def get_unread_count(user_id):
         """Get count of unread notifications for a user"""
-        return Notification.query.filter_by(user_id=user_id, read=False).count()
+        return Notification.query.filter_by(user_id=user_id, is_read=False).count()  # use is_read
 
     @staticmethod
     def get_user_notifications(user_id, page=1, per_page=10, unread_only=False):
@@ -111,7 +111,7 @@ class NotificationService:
         query = Notification.query.filter_by(user_id=user_id)
         
         if unread_only:
-            query = query.filter_by(read=False)
+            query = query.filter_by(is_read=False)  # use is_read
             
         return query.order_by(Notification.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False

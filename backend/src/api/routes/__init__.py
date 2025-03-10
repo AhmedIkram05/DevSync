@@ -1,4 +1,4 @@
-"""API routes package initialization"""
+"""API routes package initialisation"""
 
 # Import route modules for easy access
 

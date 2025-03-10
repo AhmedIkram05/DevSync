@@ -77,7 +77,7 @@ For frontend developers:
 
 ### Handling Permission Errors
 
-When a user attempts an unauthorized action, the API returns:
+When a user attempts an unauthorised action, the API returns:
 - HTTP status code 403
 - JSON response with "message" field explaining the error
 
