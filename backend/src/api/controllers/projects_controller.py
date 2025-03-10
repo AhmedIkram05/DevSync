@@ -165,7 +165,8 @@ def delete_project(project_id):
     db.session.delete(project)
     db.session.commit()
     
-    return jsonify({'message': 'Project deleted successfully'})
+    # Updated to return 204
+    return '', 204
 
 def get_project_tasks(project_id):
     """Controller function to get all tasks for a project"""

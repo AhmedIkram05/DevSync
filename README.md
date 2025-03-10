@@ -1,10 +1,10 @@
 # DevSync
 
-DevSync is a development synchronization platform that integrates database management, GitHub integration, and task tracking into one unified system.
+DevSync is a development synchronisation platform that integrates database management, GitHub integration, and task tracking into one unified system.
 
 ## Overview
 
-DevSync streamlines collaboration by connecting your database, GitHub repositories, and local development environment. It is designed to make it easy for teams to manage tasks, track issues, and synchronize changes.
+DevSync streamlines collaboration by connecting your database, GitHub repositories, and local development environment. It is designed to make it easy for teams to manage tasks, track issues, and synchronise changes.
 
 ## Features
 
@@ -29,5 +29,3 @@ DevSync streamlines collaboration by connecting your database, GitHub repositori
    ```bash
    pip install -r backend/requirements.txt
    ```
-
-## Usage

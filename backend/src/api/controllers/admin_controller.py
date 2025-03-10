@@ -1,8 +1,9 @@
 # Admin controller - business logic for admin-only operations
 
 from flask import jsonify, request
-from ...db.models import db, User, Project, Task  # Changed to relative import
-from ..validators.admin_validator import validate_system_settings  # Changed to relative import
+from ...db.models import db, User, Project, Task
+from ..validators.admin_validator import validate_system_settings, validate_user_role_update
+from ...auth.rbac import Role
 
 def get_system_stats():
     """Controller function to get system statistics for admin dashboard"""
@@ -10,9 +11,9 @@ def get_system_stats():
     users = User.query.all()
     user_stats = {
         'total': len(users),
-        'admins': len([u for u in users if u.role == 'admin']),
-        'team_leads': len([u for u in users if u.role == 'team_lead']),
-        'developers': len([u for u in users if u.role == 'developer'])
+        'admins': len([u for u in users if u.role == Role.ADMIN.value]),
+        'team_leads': len([u for u in users if u.role == Role.TEAM_LEAD.value]),
+        'developers': len([u for u in users if u.role == Role.DEVELOPER.value])
     }
     
     # Count projects by status
@@ -47,7 +48,7 @@ def get_system_settings():
     settings = {
         'app_name': 'DevSync',
         'allow_registration': True,
-        'default_user_role': 'developer',
+        'default_user_role': Role.DEVELOPER.value,
         'github_integration_enabled': True,
         'notification_settings': {
             'email_notifications': True,
@@ -73,4 +74,31 @@ def update_system_settings():
     return jsonify({
         'message': 'System settings updated successfully',
         'settings': data
+    })
+
+def update_user_role(user_id):
+    """Controller function to update a user's role"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    data = request.get_json()
+    
+    # Validate role data
+    validation_result = validate_user_role_update(data)
+    if validation_result:
+        return validation_result
+    
+    # Update user role
+    user.role = data['role']
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'User role updated successfully',
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'role': user.role
+        }
     })

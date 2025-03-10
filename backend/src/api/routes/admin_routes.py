@@ -5,7 +5,8 @@ from flask_jwt_extended import jwt_required
 from ..controllers.admin_controller import (
     get_system_stats,
     get_system_settings,
-    update_system_settings
+    update_system_settings,
+    update_user_role
 )
 from ..middlewares import admin_required
 from ..middlewares.validation_middleware import validate_json
@@ -38,3 +39,12 @@ def register_routes(bp):
     def update_settings():
         """Route to update system settings"""
         return update_system_settings()
+    
+    @bp.route('/admin/users/<int:user_id>/role', methods=['PUT'])
+    @jwt_required()
+    @admin_required()
+    @validate_json()
+    @rate_limit(requests_per_window=10, window_seconds=60)
+    def user_role_update(user_id):
+        """Route to update a user's role"""
+        return update_user_role(user_id)

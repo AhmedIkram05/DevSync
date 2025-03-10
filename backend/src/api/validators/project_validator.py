@@ -14,7 +14,7 @@ def validate_project_data(data, update=False):
     
     # Validate status if provided
     if 'status' in data:
-        valid_statuses = ['active', 'completed', 'on_hold', 'canceled']
+        valid_statuses = ['active', 'completed', 'on_hold', 'cancelled']
         if data['status'] not in valid_statuses:
             return jsonify({'message': f'Status must be one of: {", ".join(valid_statuses)}'}), 400
     

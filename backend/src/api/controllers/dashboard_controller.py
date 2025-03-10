@@ -6,6 +6,42 @@ from ...db.models import db, User, Task, Project  # Changed to relative import
 from ...auth.rbac import Role  # Changed to relative import
 from datetime import datetime, timedelta
 
+def get_user_tasks(user_id):
+    """Helper function to get all tasks for a user"""
+    return Task.query.filter_by(assigned_to=user_id).all()
+
+def get_tasks_due_soon(user_id):
+    """Helper function to get tasks due soon for a user"""
+    today = datetime.now().date()
+    week_later = today + timedelta(days=7)
+    return Task.query.filter_by(assigned_to=user_id)\
+        .filter(Task.deadline >= today, Task.deadline <= week_later)\
+        .filter(Task.status != 'done').all()
+
+def get_recent_completed_tasks(user_id):
+    """Helper function to get recent completed tasks for a user"""
+    today = datetime.now().date()
+    month_ago = today - timedelta(days=30)
+    return Task.query.filter_by(assigned_to=user_id, status='done')\
+        .filter(Task.updated_at >= month_ago).all()
+
+def get_project_tasks(project_id):
+    """Helper function to get all tasks for a project"""
+    return Task.query.filter_by(project_id=project_id).all()
+
+def get_project_tasks_due_soon(project_id):
+    """Helper function to get tasks due soon for a project"""
+    today = datetime.now().date()
+    week_later = today + timedelta(days=7)
+    return Task.query.filter_by(project_id=project_id)\
+        .filter(Task.deadline >= today, Task.deadline <= week_later)\
+        .filter(Task.status != 'done').all()
+
+def get_recent_updated_project_tasks(project_id):
+    """Helper function to get recently updated project tasks"""
+    return Task.query.filter_by(project_id=project_id)\
+        .order_by(Task.updated_at.desc()).limit(5).all()
+
 def get_user_dashboard():
     """Controller function to get dashboard data for the current user"""
     user_id = get_jwt_identity()['user_id']
@@ -16,19 +52,13 @@ def get_user_dashboard():
     user = User.query.get_or_404(user_id)
     
     # Get assigned tasks
-    assigned_tasks = Task.query.filter_by(assigned_to=user_id).all()
+    assigned_tasks = get_user_tasks(user_id)
     
     # Get tasks due soon (within 7 days)
-    today = datetime.now().date()
-    week_later = today + timedelta(days=7)
-    tasks_due_soon = Task.query.filter_by(assigned_to=user_id)\
-        .filter(Task.deadline >= today, Task.deadline <= week_later)\
-        .filter(Task.status != 'done').all()
+    tasks_due_soon = get_tasks_due_soon(user_id)
     
     # Get recently completed tasks (last 30 days)
-    month_ago = today - timedelta(days=30)
-    completed_tasks = Task.query.filter_by(assigned_to=user_id, status='done')\
-        .filter(Task.updated_at >= month_ago).all()
+    completed_tasks = get_recent_completed_tasks(user_id)
     
     # Get projects user is part of
     user_projects = user.projects.all()  # Assuming a many-to-many relationship exists
@@ -86,7 +116,7 @@ def get_project_dashboard(project_id):
     project = Project.query.get_or_404(project_id)
     
     # Get all tasks for this project
-    tasks = Task.query.filter_by(project_id=project_id).all()
+    tasks = get_project_tasks(project_id)
     
     # Calculate task statistics
     task_stats = {
@@ -103,15 +133,10 @@ def get_project_dashboard(project_id):
         completion_percentage = (task_stats['done'] / task_stats['total']) * 100
     
     # Get tasks due soon (within 7 days)
-    today = datetime.now().date()
-    week_later = today + timedelta(days=7)
-    tasks_due_soon = Task.query.filter_by(project_id=project_id)\
-        .filter(Task.deadline >= today, Task.deadline <= week_later)\
-        .filter(Task.status != 'done').all()
+    tasks_due_soon = get_project_tasks_due_soon(project_id)
     
     # Get recently updated tasks
-    recently_updated = Task.query.filter_by(project_id=project_id)\
-        .order_by(Task.updated_at.desc()).limit(5).all()
+    recently_updated = get_recent_updated_project_tasks(project_id)
     
     # Get team members
     team_members = project.team_members.all()
