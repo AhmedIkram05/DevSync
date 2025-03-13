@@ -17,7 +17,7 @@ DevSync streamlines collaboration by connecting your database, GitHub repositori
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/ahmedikram/DevSync.git
+   git clone https://github.com/AhmedIkram05/DevSync
    cd DevSync
    ```
 2. Setup your Python virtual environment:
