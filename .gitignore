@@ -21,9 +21,7 @@ var/
 *.egg
 
 # Virtual Environment
-venv/
 ENV/
-.env
 
 # IDE files
 .idea/
@@ -49,3 +47,5 @@ logs/
 config.local.js
 .env.local
 
+# Node
+node_modules/
