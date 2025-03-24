@@ -55,6 +55,9 @@ def setup_database():
             else:
                 logger.info(f"Existing tables found: {', '.join(tables)}")
             
+            # Initialize read_column to None before the conditional block
+            read_column = None
+            
             # Create indices manually - drop and recreate all indices
             with db.engine.connect() as conn:
                 # Check Notification table structure
