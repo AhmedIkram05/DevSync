@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import TaskList from "./pages/TaskList";
 import TaskDetails from "./pages/TaskDetails";
@@ -10,36 +10,126 @@ import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
 import ClientDashboard from "./pages/clientdashboard";
-
 import TaskDetailsUser from "./pages/TaskDetailsUser";
 import GitHubIntegrationDetail from "./pages/GithubIntegrationDetail";
-function App() {
-  // You can manage this role state with context or redux
-  const userRole = "admin"; // Change this to "admin" for admin view
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
+import Register from "./pages/Register"; // We'll create this next
+
+// Protected route wrapper component
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+  const { currentUser, loading } = useAuth();
+
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(currentUser.role)) {
+    // Redirect based on role
+    return currentUser.role === 'admin' ? 
+      <Navigate to="/admin" replace /> : 
+      <Navigate to="/clientdashboard" replace />;
+  }
+
+  return children;
+};
+
+function AppRoutes() {
+  const { currentUser } = useAuth();
 
   return (
-    <Router>
-      <Navbar role={userRole} />
+    <>
+      {currentUser && <Navbar />}
       <Routes>
-        {/* Common Routes */}
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         
-        {/* Developer/Client Routes */}
-        <Route path="/clientdashboard" element={<ClientDashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/TaskDetailUser" element={<TaskDetailsUser />} />
-        <Route path="/tasks" element={<TaskList />} />
-        <Route path="/tasks/:id" element={<TaskDetails />} />
-        <Route path="/github" element={<GitHubIntegration />} />
-        <Route path="/githubintegrationdetail" element={<GitHubIntegrationDetail />} />
+        {/* Client/Developer Routes */}
+        <Route path="/clientdashboard" element={
+          <ProtectedRoute allowedRoles={['developer', 'client']}>
+            <ClientDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/dashboard" element={
+          <ProtectedRoute allowedRoles={['developer', 'client']}>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/TaskDetailUser/:id" element={
+          <ProtectedRoute allowedRoles={['developer', 'client']}>
+            <TaskDetailsUser />
+          </ProtectedRoute>
+        } />
+        <Route path="/tasks" element={
+          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+            <TaskList />
+          </ProtectedRoute>
+        } />
+        <Route path="/tasks/:id" element={
+          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+            <TaskDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="/github" element={
+          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+            <GitHubIntegration />
+          </ProtectedRoute>
+        } />
+        <Route path="/githubintegrationdetail/:repoId" element={
+          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+            <GitHubIntegrationDetail />
+          </ProtectedRoute>
+        } />
+        
         {/* Admin Routes */}
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/create-task" element={<TaskCreation />} />
-        <Route path="/admin/developer-progress" element={<DeveloperProgress />} />
-        <Route path="/admin/reports" element={<Reports />} />
-
-   
+        <Route path="/admin" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create-task" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <TaskCreation />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/developer-progress" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <DeveloperProgress />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/reports" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Reports />
+          </ProtectedRoute>
+        } />
+        
+        {/* Default route */}
+        <Route path="/" element={
+          currentUser ? 
+            currentUser.role === 'admin' ? 
+              <Navigate to="/admin" replace /> : 
+              <Navigate to="/clientdashboard" replace /> 
+            : 
+            <Navigate to="/login" replace />
+        } />
       </Routes>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <NotificationProvider>
+          <AppRoutes />
+        </NotificationProvider>
+      </AuthProvider>
     </Router>
   );
 }
