@@ -10,7 +10,7 @@ import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
 import ClientDashboard from "./pages/clientdashboard";
-import Register from "./pages/Register";
+
 import TaskDetailsUser from "./pages/TaskDetailsUser";
 import GitHubIntegrationDetail from "./pages/GithubIntegrationDetail";
 function App() {
@@ -38,7 +38,7 @@ function App() {
         <Route path="/admin/developer-progress" element={<DeveloperProgress />} />
         <Route path="/admin/reports" element={<Reports />} />
 
-        <Route path="/register" element={<Register />} />
+   
       </Routes>
     </Router>
   );
