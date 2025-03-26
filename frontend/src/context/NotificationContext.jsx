@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import { notificationService } from '../services/api';
+import { notificationService } from '../services/utils/api';
 
 const NotificationContext = createContext();
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { notificationService } from '../services/api';
+import { notificationService } from '../services/utils/api';
 
 function Notifications({ notifications, onNotificationUpdate }) {
   const handleNotificationClick = async (notificationId) => {

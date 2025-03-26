@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { githubService, taskService } from '../services/api'; 
+import { githubService, taskService } from '../services/utils/api'; 
 import LoadingSpinner from '../components/LoadingSpinner';
 import GitHubIssueCard from '../components/GitHubIssueCard';
 

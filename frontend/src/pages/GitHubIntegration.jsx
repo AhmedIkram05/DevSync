@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { githubService } from "../services/api";
+import { githubService } from "../services/utils/api";
 import GitHubRepoCard from "../components/GitHubRepoCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { dashboardService, notificationService, taskService, githubService } from '../services/api';
+import { dashboardService, notificationService, taskService, githubService } from '../services/utils/api';
 import { Link } from 'react-router-dom';
 import TaskColumns from '../components/TaskColumns';
 import Notifications from '../components/Notifications';

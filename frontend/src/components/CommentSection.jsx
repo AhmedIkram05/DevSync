@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { taskService } from "../services/api";
+import { taskService } from "../services/utils/api";
 
 const CommentSection = ({ taskId, comments = [], onCommentAdded }) => {
   const { currentUser } = useAuth();
