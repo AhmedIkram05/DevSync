@@ -19,7 +19,7 @@ def register_routes(bp):
     
     @bp.route('/users', methods=['GET'])
     @jwt_required()
-    @role_required([Role.ADMIN, Role.TEAM_LEAD])
+    @role_required([Role.ADMIN])  # Changed: removed Role.TEAM_LEAD, now only ADMIN can see all users
     def users_list():
         """Route to get all users"""
         return get_all_users()
@@ -33,7 +33,7 @@ def register_routes(bp):
     @bp.route('/users/<int:user_id>', methods=['PUT'])
     @jwt_required()
     @admin_required()
-    @validate_json()  # Fixed: added parentheses
+    @validate_json()
     def update_user_route(user_id):
         """Route to update a user (admin only)"""
         return update_user(user_id)
@@ -53,7 +53,7 @@ def register_routes(bp):
     
     @bp.route('/profile', methods=['PUT'])
     @jwt_required()
-    @validate_json()  # Fixed: added parentheses
+    @validate_json()
     def update_profile():
         """Route to update current user's profile"""
         return update_current_user_profile()

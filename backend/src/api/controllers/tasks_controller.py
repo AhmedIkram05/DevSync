@@ -30,13 +30,10 @@ def get_all_tasks():
     
     # Apply role-based filtering
     if user_role == Role.ADMIN.value:
-        # Admins can see all tasks
+        # Admins (Project Managers) can see all tasks
         tasks = query.all()
-    elif user_role == Role.TEAM_LEAD.value:
-        # Team leads can see all tasks in their team
-        tasks = query.all()  # Simplified - would normally filter by team
     else:
-        # Developers can only see tasks assigned to them or created by them
+        # Clients (Team Members) can only see tasks assigned to them or created by them
         tasks = query.filter(
             (Task.assigned_to == user_id) | (Task.created_by == user_id)
         ).all()
@@ -66,7 +63,7 @@ def get_task_by_id(task_id):
     task = Task.query.get_or_404(task_id)
     
     # Apply role-based access control
-    if (user_role == Role.DEVELOPER.value and 
+    if (user_role == Role.CLIENT.value and 
         task.assigned_to != user_id and task.created_by != user_id):
         return jsonify({'message': 'You do not have permission to view this task'}), 403
     
@@ -140,7 +137,7 @@ def update_task_by_id(task_id):
     task = Task.query.get_or_404(task_id)
     
     # Check if user has permission to update this task
-    if user_role == Role.DEVELOPER.value and task.assigned_to != user_id:
+    if user_role == Role.CLIENT.value and task.assigned_to != user_id:
         return jsonify({'message': 'You can only update tasks assigned to you'}), 403
     
     # Update allowed fields
@@ -153,8 +150,8 @@ def update_task_by_id(task_id):
     if 'progress' in data:
         task.progress = data['progress']
     
-    # Only team leads and admins can reassign tasks
-    if 'assigned_to' in data and user_role in [Role.TEAM_LEAD.value, Role.ADMIN.value]:
+    # Only admins (Project Managers) can reassign tasks
+    if 'assigned_to' in data and user_role == Role.ADMIN.value:
         task.assigned_to = data['assigned_to']
     
     db.session.commit()

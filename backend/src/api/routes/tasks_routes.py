@@ -24,7 +24,7 @@ def register_routes(bp):
     
     @bp.route('/tasks', methods=['POST'])
     @jwt_required()
-    @validate_json()  # Fixed: added parentheses
+    @validate_json()
     def create_task():
         """Route to create a new task"""
         return create_new_task()
@@ -37,14 +37,14 @@ def register_routes(bp):
     
     @bp.route('/tasks/<int:task_id>', methods=['PUT'])
     @jwt_required()
-    @validate_json()  # Fixed: added parentheses
+    @validate_json()
     def update_task(task_id):
         """Route to update a task"""
         return update_task_by_id(task_id)
     
     @bp.route('/tasks/<int:task_id>', methods=['DELETE'])
     @jwt_required()
-    @role_required([Role.ADMIN, Role.TEAM_LEAD])
+    @role_required([Role.ADMIN])
     def delete_task(task_id):
         """Route to delete a task"""
         return delete_task_by_id(task_id)

@@ -8,7 +8,7 @@ const Register = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "developer", // Default role
+    role: "client", // Default role changed to client
   });
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,7 +85,7 @@ const Register = () => {
         email: "",
         password: "",
         confirmPassword: "",
-        role: "developer",
+        role: "client",
       });
       
       // Redirect to login page after success
@@ -189,8 +189,8 @@ const Register = () => {
               onChange={handleChange}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             >
-              <option value="developer">Developer</option>
-              <option value="team_lead">Team Lead</option>
+              <option value="client">Team Member</option>
+              <option value="admin">Project Manager</option>
             </select>
           </div>
           

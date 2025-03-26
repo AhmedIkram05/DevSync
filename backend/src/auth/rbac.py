@@ -7,31 +7,18 @@ from flask import jsonify
 
 class Role(Enum):
     """User roles with hierarchical permissions"""
-    DEVELOPER = 'developer'
-    TEAM_LEAD = 'team_lead'
-    ADMIN = 'admin'
+    CLIENT = 'client'  # Replaces both Developer and Team Lead
+    ADMIN = 'admin'    # Project Manager role
 
 
 # Define permissions for each role
 ROLE_PERMISSIONS = {
-    Role.DEVELOPER.value: [
+    Role.CLIENT.value: [
         'can_view_tasks',
         'can_update_assigned_tasks',
         'can_comment_on_tasks',
         'can_view_github_repos',
         'can_link_github_commits',
-    ],
-    Role.TEAM_LEAD.value: [
-        'can_view_tasks',
-        'can_create_tasks',
-        'can_update_assigned_tasks',
-        'can_update_any_task',
-        'can_assign_tasks',
-        'can_comment_on_tasks',
-        'can_view_github_repos',
-        'can_link_github_repos',
-        'can_link_github_commits',
-        'can_view_team_reports',
     ],
     Role.ADMIN.value: [
         'can_view_tasks',

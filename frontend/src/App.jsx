@@ -14,7 +14,7 @@ import TaskDetailsUser from "./pages/TaskDetailsUser";
 import GitHubIntegrationDetail from "./pages/GithubIntegrationDetail";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
-import Register from "./pages/Register"; // We'll create this next
+import Register from "./pages/Register";
 
 // Protected route wrapper component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -40,7 +40,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
 function AppRoutes() {
   const { currentUser } = useAuth();
-
+  
   return (
     <>
       {currentUser && <Navbar />}
@@ -49,44 +49,39 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         
-        {/* Client/Developer Routes */}
+        {/* Client Routes (Team Members) */}
         <Route path="/clientdashboard" element={
-          <ProtectedRoute allowedRoles={['developer', 'client']}>
+          <ProtectedRoute allowedRoles={['client']}>
             <ClientDashboard />
           </ProtectedRoute>
         } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute allowedRoles={['developer', 'client']}>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
         <Route path="/TaskDetailUser/:id" element={
-          <ProtectedRoute allowedRoles={['developer', 'client']}>
+          <ProtectedRoute allowedRoles={['client']}>
             <TaskDetailsUser />
           </ProtectedRoute>
         } />
         <Route path="/tasks" element={
-          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
             <TaskList />
           </ProtectedRoute>
         } />
         <Route path="/tasks/:id" element={
-          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
             <TaskDetails />
           </ProtectedRoute>
         } />
         <Route path="/github" element={
-          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
             <GitHubIntegration />
           </ProtectedRoute>
         } />
         <Route path="/githubintegrationdetail/:repoId" element={
-          <ProtectedRoute allowedRoles={['developer', 'client', 'admin']}>
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
             <GitHubIntegrationDetail />
           </ProtectedRoute>
         } />
         
-        {/* Admin Routes */}
+        {/* Admin Routes (Project Managers) */}
         <Route path="/admin" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />

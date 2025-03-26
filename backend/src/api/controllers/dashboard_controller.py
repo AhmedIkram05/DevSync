@@ -95,9 +95,9 @@ def get_user_dashboard():
         } for project in user_projects]
     }
     
-    # Add team lead or admin specific data
-    if user_role in [Role.ADMIN.value, Role.TEAM_LEAD.value]:
-        # Get team stats if they're a lead
+    # Add admin-specific data
+    if user_role == Role.ADMIN.value:
+        # Get team stats if they're an admin (project manager)
         team_tasks = Task.query.join(Project, Task.project_id == Project.id)\
             .filter(Project.created_by == user_id).all()
         

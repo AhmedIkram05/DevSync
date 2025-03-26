@@ -2,6 +2,7 @@
 
 from flask import jsonify
 import re
+from ...auth.rbac import Role
 
 def validate_login_data(data):
     """Validate login credentials"""
@@ -29,8 +30,8 @@ def validate_registration_data(data):
     if len(data['password']) < 8:
         return jsonify({'message': 'Password must be at least 8 characters long'}), 400
     
-    # Validate role
-    valid_roles = ['developer', 'team_lead', 'admin']
+    # Validate role using the updated simplified role structure
+    valid_roles = [role.value for role in Role]  # Gets ['client', 'admin'] from the Role enum
     if data['role'] not in valid_roles:
         return jsonify({'message': f'Role must be one of: {", ".join(valid_roles)}'}), 400
     
