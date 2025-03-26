@@ -1,10 +1,10 @@
 import React from 'react';
-import { dashboardApi } from '../services/api';
+import { notificationService } from '../services/api';
 
 function Notifications({ notifications, onNotificationUpdate }) {
   const handleNotificationClick = async (notificationId) => {
     try {
-      await dashboardApi.markNotificationRead(notificationId);
+      await notificationService.markAsRead(notificationId);
       // Callback to parent to refresh notifications
       if (onNotificationUpdate) {
         onNotificationUpdate();
@@ -44,4 +44,4 @@ function Notifications({ notifications, onNotificationUpdate }) {
   );
 }
 
-export default Notifications; 
+export default Notifications;

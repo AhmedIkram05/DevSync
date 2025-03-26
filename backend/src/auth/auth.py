@@ -64,6 +64,7 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
+    """Function to authenticate a user and create a session"""
     data = request.get_json()
     
     # Validate required fields
@@ -71,14 +72,21 @@ def login():
         return jsonify({'message': 'Missing email or password'}), 400
     
     # Find user by email
+    print(f"Attempting to login user: {data['email']}")
     user = User.query.filter_by(email=data['email']).first()
     
     # Check if user exists and password is correct
-    if not user or not verify_password(data['password'], user.password):
+    if not user:
+        print(f"User not found: {data['email']}")
+        return jsonify({'message': 'Invalid email or password'}), 401
+        
+    if not verify_password(data['password'], user.password):
+        print(f"Invalid password for user: {data['email']}")
         return jsonify({'message': 'Invalid email or password'}), 401
     
     # Generate tokens
     tokens = generate_tokens(user.id, {'role': user.role})
+    print(f"Login successful for user: {user.email}, role: {user.role}")
     
     # Create response
     resp = jsonify({
@@ -87,7 +95,8 @@ def login():
             'id': user.id,
             'name': user.name,
             'email': user.email,
-            'role': user.role
+            'role': user.role,
+            'token': tokens['access_token']  # Include token in response
         }
     })
     
@@ -147,8 +156,20 @@ def register_user():
     """Function to register a new user"""
     data = request.get_json()
     
+    # Validate required fields
+    if not all(k in data for k in ['name', 'email', 'password', 'role']):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    # Check if email already exists
+    existing_user = User.query.filter_by(email=data['email']).first()
+    if existing_user:
+        return jsonify({'message': 'Email already registered'}), 409
+    
     # Create new user
     try:
+        # Print debug information
+        print(f"Attempting to register user: {data['email']} with role: {data['role']}")
+        
         new_user = User(
             name=data['name'],
             email=data['email'],
@@ -169,7 +190,8 @@ def register_user():
                 'id': new_user.id,
                 'name': new_user.name,
                 'email': new_user.email,
-                'role': new_user.role
+                'role': new_user.role,
+                'token': tokens['access_token']  # Include token in response for frontend
             }
         })
         
@@ -179,9 +201,11 @@ def register_user():
         
         return resp, 201
     
-    except IntegrityError:
+    except Exception as e:
+        # Enhanced error handling to catch all exceptions
         db.session.rollback()
-        return jsonify({'message': 'An error occurred while registering the user'}), 500
+        print(f"Registration error: {str(e)}")
+        return jsonify({'message': f'An error occurred while registering the user: {str(e)}'}), 500
 
 def refresh_token():
     """Function to refresh an access token"""

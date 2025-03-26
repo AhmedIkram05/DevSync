@@ -15,17 +15,56 @@ DevSync streamlines collaboration by connecting your database, GitHub repositori
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/AhmedIkram05/DevSync
-   cd DevSync
-   ```
-2. Setup your Python virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
+### Prerequisites
+- Python 3.8 or higher
+- Node.js 14.x or higher
+- npm 6.x or higher
+- PostgreSQL database (local or cloud-hosted)
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/AhmedIkram05/DevSync
+cd DevSync
+```
+
+### Step 2: Setup Python Virtual Environment
+
+#### macOS/Linux
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+#### Windows
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+### Step 3: Install Backend Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Setup Frontend
+```bash
+cd frontend
+npm install
+```
+
+## Running The Application
+### Backend Server
+```bash
+source venv/bin/activate  # If not already activated
+cd backend/src
+python app.py
+```
+The API server will start running on http://localhost:5000
+
+
+### Frontend Server
+```bash
+cd frontend
+npm start
+```
+The React app should automatically open in your browser at http://localhost:3000
