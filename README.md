@@ -59,12 +59,13 @@ source venv/bin/activate  # If not already activated
 cd backend/src
 python app.py
 ```
-The API server will start running on http://localhost:5000
+The API server will start running on http://localhost:8000
 
 
 ### Frontend Server
 ```bash
 cd frontend
-npm start
+npm run build
+serve -s build
 ```
 The React app should automatically open in your browser at http://localhost:3000

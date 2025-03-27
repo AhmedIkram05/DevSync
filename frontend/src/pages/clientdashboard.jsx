@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { dashboardService, notificationService, taskService, githubService } from '../services/utils/api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import TaskColumns from '../components/TaskColumns';
 import Notifications from '../components/Notifications';
 import GitHubActivity from '../components/GitHubActivity';
@@ -8,7 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 function ClientDashboard() {
-  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
   const [dashboardData, setDashboardData] = useState({
     user: currentUser,
     tasks: {
@@ -23,102 +24,82 @@ function ClientDashboard() {
   const [gitHubConnected, setGitHubConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch dashboard stats
-        const dashboardStats = await dashboardService.getClientDashboardStats();
-        
-        // Fetch tasks
-        const tasksData = await taskService.getAllTasks();
-        
-        // Fetch notifications
-        const notificationsData = await notificationService.getNotifications();
-        
-        // Try to fetch GitHub activity if user has connected their GitHub account
-        let githubActivityData = [];
-        try {
-          const connectionStatus = await githubService.checkConnection();
-          setGitHubConnected(connectionStatus.connected);
-          
-          if (connectionStatus.connected) {
-            const repos = await githubService.getUserRepos();
-            if (repos && repos.length > 0) {
-              // If user has GitHub repos, get activity from the first one
-              // In a real app, you might want to show activity across all repos
-              const repoActivity = await githubService.getIssues(repos[0].id);
-              githubActivityData = repoActivity || [];
-            }
-          }
-        } catch (githubError) {
-          console.warn('Could not fetch GitHub activity:', githubError);
-          // Don't fail the entire dashboard load if GitHub fails
-        }
-        
-        // Combine all data
-        setDashboardData({
-          user: currentUser,
-          stats: dashboardStats || {},
-          tasks: {
-            assigned_count: tasksData.length,
-            pending_count: tasksData.filter(task => task.status !== 'completed').length,
-            completed_count: tasksData.filter(task => task.status === 'completed').length,
-            items: tasksData
-          }
-        });
-        
-        setNotifications(notificationsData || []);
-        setGitHubActivity(githubActivityData);
-        setError(null);
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
-        setError('Failed to fetch dashboard data. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchDashboardData();
-  }, [currentUser]);
   
-  const handleRefreshDashboard = () => {
-    setLoading(true);
-    // Re-run the effect to fetch fresh data
-    fetchDashboardData();
-  };
+  // Check authentication before proceeding
+  useEffect(() => {
+    // Verify we have a user with token before continuing
+    if (!currentUser) {
+      console.error("No authenticated user found");
+      navigate('/login');
+      return;
+    }
+    
+    // Verify token exists
+    if (!currentUser.token) {
+      console.error("User exists but no token found:", currentUser);
+      setError("Authentication token is missing. Please log in again.");
+      
+      // Auto-logout after a delay
+      setTimeout(() => {
+        logout();
+      }, 3000);
+    }
+  }, [currentUser, navigate, logout]);
 
-  const fetchDashboardData = async () => {
+  // Define fetchDashboardData with useCallback to avoid recreation on each render
+  const fetchDashboardData = useCallback(async () => {
+    // Skip fetch if no auth token is available
+    if (!currentUser?.token) {
+      console.error("Skipping dashboard fetch - no auth token available");
+      return;
+    }
+    
     try {
+      console.log("Fetching dashboard data with token:", 
+                 currentUser.token ? `${currentUser.token.substring(0, 15)}...` : "MISSING");
+      setLoading(true);
+      
       // Fetch dashboard stats
+      console.log("Fetching dashboard stats...");
       const dashboardStats = await dashboardService.getClientDashboardStats();
+      console.log("Dashboard stats received:", dashboardStats);
       
       // Fetch tasks
+      console.log("Fetching tasks...");
       const tasksData = await taskService.getAllTasks();
+      console.log("Tasks received:", tasksData?.length || 0, "tasks");
       
       // Fetch notifications
+      console.log("Fetching notifications...");
       const notificationsData = await notificationService.getNotifications();
+      console.log("Notifications received:", notificationsData?.length || 0, "notifications");
       
       // Try to fetch GitHub activity if user has connected their GitHub account
+      console.log("Checking GitHub connection...");
       let githubActivityData = [];
+      let isConnected = false;
+      
       try {
         const connectionStatus = await githubService.checkConnection();
-        setGitHubConnected(connectionStatus.connected);
+        isConnected = connectionStatus.connected;
+        console.log("GitHub connection status:", isConnected ? "Connected" : "Not connected");
         
         if (connectionStatus.connected) {
           const repos = await githubService.getUserRepos();
           if (repos && repos.length > 0) {
+            // If user has GitHub repos, get activity from the first one
+            console.log("Fetching GitHub activity from repo:", repos[0].repo_name);
             const repoActivity = await githubService.getIssues(repos[0].id);
             githubActivityData = repoActivity || [];
+            console.log("GitHub activity received:", githubActivityData.length, "items");
           }
         }
       } catch (githubError) {
         console.warn('Could not fetch GitHub activity:', githubError);
+        // Don't fail the entire dashboard load if GitHub fails
       }
       
-      // Combine all data
+      // Update all states at once to prevent race conditions
       setDashboardData({
         user: currentUser,
         stats: dashboardStats || {},
@@ -132,14 +113,57 @@ function ClientDashboard() {
       
       setNotifications(notificationsData || []);
       setGitHubActivity(githubActivityData);
+      setGitHubConnected(isConnected);
       setError(null);
+      console.log("Dashboard data successfully loaded");
+      
     } catch (err) {
       console.error('Dashboard fetch error:', err);
-      setError('Failed to fetch dashboard data. Please try again later.');
+      
+      // Handle authentication errors specifically
+      if (err.message && err.message.includes('Authentication token')) {
+        setError('Your session has expired. Please log in again.');
+        
+        // Force logout after a delay
+        setTimeout(() => {
+          logout();
+        }, 3000);
+      } else {
+        setError('Failed to fetch dashboard data. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
+  }, [currentUser, logout]);
+  
+  useEffect(() => {
+    if (currentUser?.token) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData, currentUser]);
+  
+  const handleRefreshDashboard = () => {
+    fetchDashboardData();
   };
+  
+  // Show login message if currentUser is missing or doesn't have a token
+  if (!currentUser || !currentUser.token) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center p-6">
+        <div className="text-xl text-red-600 mb-4">
+          Authentication required. Redirecting to login...
+        </div>
+        <div className="mt-4">
+          <button 
+            onClick={() => navigate('/login')}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -159,10 +183,19 @@ function ClientDashboard() {
         >
           Retry
         </button>
+        <div className="mt-4">
+          <button 
+            onClick={() => navigate('/login')}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+          >
+            Back to Login
+          </button>
+        </div>
       </div>
     );
   }
 
+  // Rest of the component remains unchanged
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
       {/* Main Content */}
@@ -175,11 +208,24 @@ function ClientDashboard() {
           <button 
             onClick={handleRefreshDashboard}
             className="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+            disabled={loading}
           >
-            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh Dashboard
+            {loading ? (
+              <>
+                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh Dashboard
+              </>
+            )}
           </button>
         </div>
         
@@ -187,6 +233,7 @@ function ClientDashboard() {
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Tasks Overview</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* ...existing task overview cards... */}
             <div className="bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow">
               <div className="flex items-center">
                 <div className="rounded-full bg-blue-100 p-3 mr-4">

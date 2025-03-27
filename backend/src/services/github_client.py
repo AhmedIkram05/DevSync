@@ -3,7 +3,12 @@ GitHub API client utilities for DevSync
 """
 import os
 import requests
+import logging
 from flask import current_app
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class GitHubClient:
     """Client for the GitHub API"""
@@ -23,6 +28,8 @@ class GitHubClient:
         client_id = current_app.config.get('GITHUB_CLIENT_ID')
         redirect_uri = current_app.config.get('GITHUB_REDIRECT_URI')
         
+        logger.info(f"Creating GitHub auth URL with client_id: {client_id}, redirect_uri: {redirect_uri}")
+        
         return (
             f"{GitHubClient.AUTH_URL}?"
             f"client_id={client_id}&"
@@ -40,20 +47,60 @@ class GitHubClient:
         client_secret = current_app.config.get('GITHUB_CLIENT_SECRET')
         redirect_uri = current_app.config.get('GITHUB_REDIRECT_URI')
         
-        response = requests.post(
-            GitHubClient.TOKEN_URL,
-            data={
-                'client_id': client_id,
-                'client_secret': client_secret,
-                'code': code,
-                'redirect_uri': redirect_uri
-            },
-            headers={'Accept': 'application/json'}
-        )
+        logger.info(f"Exchanging code for token with GitHub...")
+        logger.info(f"Using client_id: {client_id}")
+        logger.info(f"Using redirect_uri: {redirect_uri}")
+        logger.info(f"Code (first 10 chars): {code[:10]}...")
         
-        if response.status_code == 200:
-            return response.json()
-        return None
+        # Create payload for token request
+        data = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'code': code,
+            'redirect_uri': redirect_uri
+        }
+        
+        headers = {'Accept': 'application/json'}
+        
+        logger.info("Making POST request to GitHub for token exchange...")
+        try:
+            response = requests.post(
+                GitHubClient.TOKEN_URL,
+                data=data,
+                headers=headers
+            )
+            
+            status_code = response.status_code
+            logger.info(f"GitHub token exchange response status: {status_code}")
+            
+            if status_code == 200:
+                try:
+                    response_json = response.json()
+                    if 'error' in response_json:
+                        logger.error(f"GitHub error response: {response_json['error']}")
+                        if 'error_description' in response_json:
+                            logger.error(f"Error description: {response_json['error_description']}")
+                        return None
+                    
+                    logger.info("Successfully obtained access token from GitHub")
+                    if 'access_token' in response_json:
+                        token_preview = response_json['access_token'][:10] + '...' if response_json['access_token'] else 'None'
+                        logger.info(f"Access token (first 10 chars): {token_preview}")
+                        return response_json
+                    else:
+                        logger.warning("No access_token in response even though status was 200")
+                        logger.warning(f"Response keys: {response_json.keys()}")
+                        return None
+                except Exception as e:
+                    logger.error(f"Error parsing JSON response: {str(e)}")
+                    logger.error(f"Raw response content: {response.text}")
+                    return None
+            else:
+                logger.warning(f"Non-200 status code. Raw response: {response.text}")
+                return None
+        except Exception as e:
+            logger.error(f"Exception during token exchange request: {str(e)}")
+            return None
     
     def get_headers(self):
         """Get headers with authorization for API requests"""

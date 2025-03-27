@@ -4,7 +4,9 @@ from flask import request
 from flask_jwt_extended import jwt_required
 from ..controllers.dashboard_controller import (
     get_user_dashboard,
-    get_project_dashboard
+    get_project_dashboard,
+    get_client_dashboard,
+    get_admin_dashboard
 )
 from ..middlewares import role_required
 from ...auth.rbac import Role
@@ -17,6 +19,20 @@ def register_routes(bp):
     def user_dashboard():
         """Route to get dashboard data for current user"""
         return get_user_dashboard()
+    
+    @bp.route('/dashboard/client', methods=['GET'])
+    @jwt_required()
+    @role_required(Role.CLIENT)
+    def client_dashboard():
+        """Route to get client-specific dashboard data"""
+        return get_client_dashboard()
+    
+    @bp.route('/dashboard/admin', methods=['GET'])
+    @jwt_required()
+    @role_required(Role.ADMIN)
+    def admin_dashboard():
+        """Route to get admin-specific dashboard data"""
+        return get_admin_dashboard()
     
     @bp.route('/dashboard/projects/<int:project_id>', methods=['GET'])
     @jwt_required()
