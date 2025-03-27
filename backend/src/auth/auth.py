@@ -88,6 +88,12 @@ def login():
     tokens = generate_tokens(user.id, {'role': user.role})
     print(f"Login successful for user: {user.email}, role: {user.role}")
     
+    # Check for GitHub connection
+    from ..db.models.models import GitHubToken
+    github_token = GitHubToken.query.filter_by(user_id=user.id).first()
+    github_connected = github_token is not None
+    github_username = user.github_username
+    
     # Create response
     resp = jsonify({
         'message': 'Login successful',
@@ -96,7 +102,9 @@ def login():
             'name': user.name,
             'email': user.email,
             'role': user.role,
-            'token': tokens['access_token']  # Include token in response
+            'token': tokens['access_token'],  # Include token in response
+            'github_connected': github_connected,
+            'github_username': github_username
         }
     })
     
@@ -230,3 +238,38 @@ def logout_user():
     unset_jwt_cookies(resp)
     
     return resp
+
+# Add a dedicated token endpoint for the frontend to use
+def get_token():
+    """Function to get a token for an already authenticated user"""
+    data = request.get_json()
+    
+    # Validate required fields
+    if not all(k in data for k in ['email', 'password']):
+        return jsonify({'message': 'Missing email or password'}), 400
+    
+    # Find user by email
+    user = User.query.filter_by(email=data['email']).first()
+    
+    # Check if user exists and password is correct
+    if not user:
+        return jsonify({'message': 'Invalid email or password'}), 401
+        
+    if not verify_password(data['password'], user.password):
+        return jsonify({'message': 'Invalid email or password'}), 401
+    
+    # Generate tokens
+    tokens = generate_tokens(user.id, {'role': user.role})
+    
+    # Create response with just the token
+    response = jsonify({
+        'token': tokens['access_token'],
+        'user_id': user.id,
+        'role': user.role
+    })
+    
+    # Set cookies
+    set_access_cookies(response, tokens['access_token'])
+    set_refresh_cookies(response, tokens['refresh_token'])
+    
+    return response

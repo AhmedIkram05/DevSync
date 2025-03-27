@@ -16,6 +16,21 @@ logger = logging.getLogger(__name__)
 # In-memory store for OAuth state parameters (in a production app, use Redis or similar)
 oauth_states = {}
 
+def check_github_config():
+    """Check GitHub OAuth configuration"""
+    config_status = {
+        'client_id_set': bool(current_app.config.get('GITHUB_CLIENT_ID')),
+        'client_secret_set': bool(current_app.config.get('GITHUB_CLIENT_SECRET')),
+        'redirect_uri_set': bool(current_app.config.get('GITHUB_REDIRECT_URI')),
+    }
+    
+    return jsonify({
+        'config_status': config_status,
+        'client_id': current_app.config.get('GITHUB_CLIENT_ID', '')[:4] + '****' if current_app.config.get('GITHUB_CLIENT_ID') else None,
+        'redirect_uri': current_app.config.get('GITHUB_REDIRECT_URI'),
+        'frontend_url': current_app.config.get('FRONTEND_URL', 'http://localhost:3000')
+    })
+
 def initiate_github_auth():
     """Initiate GitHub OAuth flow"""
     # Generate a random state parameter to prevent CSRF
@@ -27,6 +42,13 @@ def initiate_github_auth():
         'user_id': user_id,
         'created_at': datetime.now()
     }
+    
+    # Check if GitHub OAuth credentials are configured
+    if not current_app.config.get('GITHUB_CLIENT_ID') or not current_app.config.get('GITHUB_CLIENT_SECRET'):
+        return jsonify({
+            'error': 'GitHub OAuth credentials not configured',
+            'message': 'GitHub integration is not available at this time.'
+        }), 503
     
     # Get authorization URL
     auth_url = GitHubClient.get_auth_url(state)

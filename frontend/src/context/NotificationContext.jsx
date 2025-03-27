@@ -1,131 +1,122 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { notificationService } from '../services/utils/api';
+import io from 'socket.io-client';
 
 const NotificationContext = createContext();
 
-export const useNotification = () => useContext(NotificationContext);
+export const useNotifications = () => useContext(NotificationContext);
 
 export const NotificationProvider = ({ children }) => {
-  const { currentUser } = useAuth();
-  const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
+  const [socket, setSocket] = useState(null);
+  const [error, setError] = useState(null);
+  
+  const { currentUser } = useAuth();
 
-  // Initialize Socket.IO connection when user is authenticated
-  useEffect(() => {
-    let socketInstance = null;
-
-    const connectSocket = () => {
-      if (!currentUser?.id) return;
-
-      // Create Socket.IO connection - Updated to use port 8000
-      socketInstance = io('http://127.0.0.1:8000', {
-        withCredentials: true,
-        query: {
-          token: currentUser.token
-        }
-      });
-
-      // Socket connection events
-      socketInstance.on('connect', () => {
-        console.log('Socket.IO connected');
-        setIsConnected(true);
-        
-        // Register user with their ID
-        socketInstance.emit('register', { user_id: currentUser.id });
-        
-        // If user has projects, join their rooms
-        if (currentUser.projects) {
-          currentUser.projects.forEach(projectId => {
-            socketInstance.emit('join_project', { project_id: projectId });
-          });
-        }
-      });
-
-      socketInstance.on('disconnect', () => {
-        console.log('Socket.IO disconnected');
-        setIsConnected(false);
-      });
-
-      socketInstance.on('connect_error', (err) => {
-        console.error('Socket.IO connection error:', err);
-        setIsConnected(false);
-      });
-
-      // Listen for notification events
-      socketInstance.on('notification', (data) => {
-        console.log('New notification received:', data);
-        setNotifications(prev => [data, ...prev]);
-        setUnreadCount(count => count + 1);
-        
-        // Show browser notification if supported
-        showBrowserNotification(data);
-      });
-
-      setSocket(socketInstance);
-    };
-
-    // Fetch initial notifications
-    const fetchNotifications = async () => {
-      if (!currentUser) return;
-      
-      try {
-        const fetchedNotifications = await notificationService.getNotifications();
-        setNotifications(fetchedNotifications || []);
-        setUnreadCount(
-          fetchedNotifications?.filter(notification => !notification.is_read)?.length || 0
-        );
-      } catch (error) {
-        console.error('Failed to fetch notifications:', error);
-      }
-    };
-
-    if (currentUser) {
-      connectSocket();
-      fetchNotifications();
+  // Memoize the fetchNotifications function to prevent unnecessary re-renders
+  const fetchNotifications = useCallback(async () => {
+    if (!currentUser) {
+      console.log('No user logged in, skipping notification fetch');
+      return;
     }
+    
+    try {
+      // Import dynamically to prevent circular dependencies
+      const { notificationService } = await import('../services/utils/api');
+      
+      const notificationData = await notificationService.getNotifications();
+      
+      // Even if there's an error, notificationService now returns an empty array
+      // which is safer for the UI
+      setNotifications(notificationData);
+      
+      // Count unread notifications
+      const unreadNotifications = notificationData.filter(n => !n.read);
+      setUnreadCount(unreadNotifications.length);
+      
+      setError(null); // Clear any previous errors
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+      // Don't set error state to prevent UI problems - just log it
+      // setError('Failed to load notifications');
+    }
+  }, [currentUser]);
+
+  // Handle socket.io connection
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    // Connect to socket server with auth token
+    const newSocket = io('http://localhost:8000', {
+      transports: ['websocket'],
+      auth: {
+        token: currentUser.token
+      },
+      autoConnect: true,
+      reconnection: true
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Socket.IO connected');
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('Socket.IO disconnected');
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('Socket.IO connection error:', err);
+      // Don't stop the app from working when socket fails
+    });
+
+    // Listen for new notifications
+    newSocket.on('notification', (notification) => {
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(count => count + 1);
+    });
+
+    setSocket(newSocket);
 
     // Cleanup on unmount
     return () => {
-      if (socketInstance) {
-        socketInstance.disconnect();
+      if (newSocket) {
+        newSocket.disconnect();
       }
     };
   }, [currentUser]);
 
-  // Show browser notification if permission is granted
-  const showBrowserNotification = (notification) => {
-    if (!('Notification' in window)) return;
-    
-    if (Notification.permission === 'granted') {
-      new Notification('DevSync Notification', {
-        body: notification.content,
-        icon: '/logo.png' // Ensure you have this icon in your public folder
-      });
-    } else if (Notification.permission !== 'denied') {
-      Notification.requestPermission();
+  // Fetch notifications on mount and when user changes
+  useEffect(() => {
+    if (currentUser) {
+      fetchNotifications();
+    } else {
+      // Clear notifications when user logs out
+      setNotifications([]);
+      setUnreadCount(0);
     }
-  };
+  }, [currentUser, fetchNotifications]);
 
-  // Mark a notification as read
+  // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      await notificationService.markAsRead(notificationId);
+      // Import dynamically to prevent circular dependencies  
+      const { notificationService } = await import('../services/utils/api');
+      
+      await notificationService.markNotificationAsRead(notificationId);
       
       // Update local state
       setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, is_read: true } 
-            : notification
+        prev.map(n => 
+          n.id === notificationId ? { ...n, read: true } : n
         )
       );
       
       // Update unread count
       setUnreadCount(prev => Math.max(0, prev - 1));
+      
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -134,48 +125,31 @@ export const NotificationProvider = ({ children }) => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      const unreadNotifications = notifications.filter(n => !n.is_read);
+      // Import dynamically to prevent circular dependencies
+      const { notificationService } = await import('../services/utils/api');
       
-      if (unreadNotifications.length === 0) return;
-      
-      // Update all unread notifications
-      await Promise.all(
-        unreadNotifications.map(n => notificationService.markAsRead(n.id))
-      );
+      await notificationService.markAllNotificationsAsRead();
       
       // Update local state
       setNotifications(prev => 
-        prev.map(notification => ({ ...notification, is_read: true }))
+        prev.map(n => ({ ...n, read: true }))
       );
       
       // Reset unread count
       setUnreadCount(0);
+      
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
   };
 
-  // Refresh notifications from server
-  const refreshNotifications = async () => {
-    try {
-      const fetchedNotifications = await notificationService.getNotifications();
-      setNotifications(fetchedNotifications || []);
-      setUnreadCount(
-        fetchedNotifications?.filter(notification => !notification.is_read)?.length || 0
-      );
-    } catch (error) {
-      console.error('Failed to refresh notifications:', error);
-    }
-  };
-
   const value = {
-    socket,
     notifications,
     unreadCount,
-    isConnected,
+    error,
     markAsRead,
     markAllAsRead,
-    refreshNotifications
+    refreshNotifications: fetchNotifications
   };
 
   return (

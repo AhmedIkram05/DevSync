@@ -3,7 +3,7 @@
 from flask import request
 from flask_jwt_extended import jwt_required
 # Import the actual authentication logic from auth folder
-from ...auth.auth import login, register_user, refresh_token, logout_user  # Changed to relative import
+from ...auth.auth import login, register_user, refresh_token, logout_user, get_token  # Added get_token
 from ..middlewares.validation_middleware import validate_json  # Changed to relative import
 from ..validators.auth_validator import validate_login_data, validate_registration_data  # Changed to relative import
 
@@ -48,3 +48,13 @@ def register_routes(bp):
         """Route to get current authenticated user"""
         from ..controllers.users_controller import get_current_user_profile  # Changed to relative import
         return get_current_user_profile()
+        
+    @bp.route('/auth/token', methods=['POST'])
+    @validate_json()
+    def token_route():
+        """Route to get an authentication token directly"""
+        # Validate input data
+        validation_error = validate_login_data(request.get_json())
+        if validation_error:
+            return validation_error
+        return get_token()
