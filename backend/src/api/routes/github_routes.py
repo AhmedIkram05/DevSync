@@ -41,11 +41,7 @@ def register_routes(bp):
         if request.method == 'GET':
             code = request.args.get('code')
             state = request.args.get('state')
-<<<<<<< HEAD
-            print(f"GitHub callback GET request received with code: {code[:10] if code else 'None'}... and state: {state[:10] if state else 'None'}...")
-=======
             print(f"GitHub callback GET request received with code: {code[:10]}... and state: {state[:10]}...")
->>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
         # For POST requests (from frontend)
         else:
             data = request.get_json() or {}
