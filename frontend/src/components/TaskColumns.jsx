@@ -38,11 +38,15 @@ function TaskColumns({ tasks = [] }) {
   // Function to render a single task card
   const renderTaskCard = (task, borderColor) => {
     // Ensure task has an id
+<<<<<<< HEAD
     const taskId = task?.id;
     if (!taskId) {
       console.error('Task is missing a unique identifier:', task);
       return null;
     }
+=======
+    const taskId = task?.id || `task-${Math.random().toString(36).substr(2, 9)}`;
+>>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
     const taskTitle = task?.title || 'Untitled Task';
     const taskPriority = task?.priority || 'medium';
     const taskProgress = task?.progress || 0;

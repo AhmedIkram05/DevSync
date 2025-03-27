@@ -28,7 +28,11 @@ class GitHubClient:
         client_id = current_app.config.get('GITHUB_CLIENT_ID')
         redirect_uri = current_app.config.get('GITHUB_REDIRECT_URI')
         
+<<<<<<< HEAD
         logger.info(f"Creating GitHub auth URL with client_id: {client_id}, redirect_uri: {redirect_uri}")
+=======
+        print(f"Creating GitHub auth URL with client_id: {client_id}, redirect_uri: {redirect_uri}")
+>>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
         
         return (
             f"{GitHubClient.AUTH_URL}?"
@@ -47,10 +51,17 @@ class GitHubClient:
         client_secret = current_app.config.get('GITHUB_CLIENT_SECRET')
         redirect_uri = current_app.config.get('GITHUB_REDIRECT_URI')
         
+<<<<<<< HEAD
         logger.info(f"Exchanging code for token with GitHub...")
         logger.info(f"Using client_id: {client_id}")
         logger.info(f"Using redirect_uri: {redirect_uri}")
         logger.info(f"Code (first 10 chars): {code[:10]}...")
+=======
+        print(f"Exchanging code for token with GitHub...")
+        print(f"Using client_id: {client_id}")
+        print(f"Using redirect_uri: {redirect_uri}")
+        print(f"Code (first 10 chars): {code[:10]}...")
+>>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
         
         # Create payload for token request
         data = {
@@ -62,7 +73,11 @@ class GitHubClient:
         
         headers = {'Accept': 'application/json'}
         
+<<<<<<< HEAD
         logger.info("Making POST request to GitHub for token exchange...")
+=======
+        print("Making POST request to GitHub for token exchange...")
+>>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
         try:
             response = requests.post(
                 GitHubClient.TOKEN_URL,
@@ -71,12 +86,17 @@ class GitHubClient:
             )
             
             status_code = response.status_code
+<<<<<<< HEAD
             logger.info(f"GitHub token exchange response status: {status_code}")
+=======
+            print(f"GitHub token exchange response status: {status_code}")
+>>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
             
             if status_code == 200:
                 try:
                     response_json = response.json()
                     if 'error' in response_json:
+<<<<<<< HEAD
                         logger.error(f"GitHub error response: {response_json['error']}")
                         if 'error_description' in response_json:
                             logger.error(f"Error description: {response_json['error_description']}")
@@ -100,6 +120,31 @@ class GitHubClient:
                 return None
         except Exception as e:
             logger.error(f"Exception during token exchange request: {str(e)}")
+=======
+                        print(f"GitHub error response: {response_json['error']}")
+                        if 'error_description' in response_json:
+                            print(f"Error description: {response_json['error_description']}")
+                        return None
+                    
+                    print("Successfully obtained access token from GitHub")
+                    if 'access_token' in response_json:
+                        token_preview = response_json['access_token'][:10] + '...' if response_json['access_token'] else 'None'
+                        print(f"Access token (first 10 chars): {token_preview}")
+                        return response_json
+                    else:
+                        print("No access_token in response even though status was 200")
+                        print(f"Response keys: {response_json.keys()}")
+                        return None
+                except Exception as e:
+                    print(f"Error parsing JSON response: {str(e)}")
+                    print(f"Raw response content: {response.text}")
+                    return None
+            else:
+                print(f"Non-200 status code. Raw response: {response.text}")
+                return None
+        except Exception as e:
+            print(f"Exception during token exchange request: {str(e)}")
+>>>>>>> a648aa4a2cdea51a05dd8260a26dcdefce374c7c
             return None
     
     def get_headers(self):
