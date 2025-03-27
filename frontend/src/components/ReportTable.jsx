@@ -75,6 +75,8 @@ const ReportTable = ({ data = [], type }) => {
               View
             </Link>
           );
+        default:
+          return '';
       }
     } else if (type === 'github') {
       switch(column) {
@@ -104,6 +106,8 @@ const ReportTable = ({ data = [], type }) => {
               View on GitHub
             </a>
           );
+        default:
+          return '';
       }
     } else if (type === 'developers') {
       switch(column) {
@@ -131,6 +135,8 @@ const ReportTable = ({ data = [], type }) => {
               View Tasks
             </Link>
           );
+        default:
+          return '';
       }
     }
     
