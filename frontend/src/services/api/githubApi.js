@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://127.0.0.1:5000/api/v1/github'; // Adjust according to your API endpoint
+const BASE_URL = 'http://127.0.0.1:8000/api/v1/github'; // Adjust according to your API endpoint
 
 export const githubApi = {
   // Initialize GitHub OAuth flow

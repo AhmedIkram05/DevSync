@@ -23,7 +23,7 @@ else:
     from .socketio_server import init_socketio
 
 from datetime import timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
@@ -65,14 +65,42 @@ def create_app(config_class=None):
     migrate = Migrate(app, db)
     jwt = JWTManager(app)
     
-    # Enhanced CORS configuration
-    CORS(app, supports_credentials=True, resources={
-        r"/*": {
-            "origins": ["http://localhost:3000", "http://127.0.0.1:3000"], 
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
-        }
-    })
+    # Fix CORS configuration - ensure headers aren't duplicated
+    CORS(app, 
+         supports_credentials=True,
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+         origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+         expose_headers=["Content-Type", "Authorization"],
+         max_age=600)
+    
+    # IMPORTANT: Remove the after_request handler that's duplicating headers
+    # and replace with one that prevents duplicates
+    @app.after_request
+    def add_cors_headers(response):
+        # Only add headers if they don't already exist
+        origin = request.headers.get('Origin')
+        if origin in ["http://localhost:3000", "http://127.0.0.1:3000"]:
+            # Check if header already exists (added by Flask-CORS)
+            if 'Access-Control-Allow-Origin' not in response.headers:
+                response.headers.add('Access-Control-Allow-Origin', origin)
+            if 'Access-Control-Allow-Headers' not in response.headers:
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            if 'Access-Control-Allow-Methods' not in response.headers:
+                response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH')
+            if 'Access-Control-Allow-Credentials' not in response.headers:
+                response.headers.add('Access-Control-Allow-Credentials', 'true')
+            if 'Access-Control-Max-Age' not in response.headers:
+                response.headers.add('Access-Control-Max-Age', '600')
+        return response
+
+    # Simplify options handler to prevent duplicate headers
+    @app.route('/', methods=['OPTIONS'])
+    @app.route('/<path:path>', methods=['OPTIONS'])
+    def options_handler(path=None):
+        response = make_response()
+        # We don't add CORS headers here, the after_request will handle it
+        return response
     
     # JWT error handlers
     @jwt.expired_token_loader
@@ -109,6 +137,9 @@ def create_app(config_class=None):
         '/',
         '/api/v1/auth/register',
         '/api/v1/auth/login',
+        '/api/v1/github/callback',
+        '/api/v1/github/exchange',
+        '/api/v1/github/connect'
     ]
     
     # Middleware to remove Flask-JWT auth requirements for public routes

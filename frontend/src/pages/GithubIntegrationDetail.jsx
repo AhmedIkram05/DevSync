@@ -35,8 +35,11 @@ function GitHubIntegrationDetail() {
       setLoading(true);
       
       // Get repository details
-      const repos = await githubService.getUserRepos();
-      const currentRepo = repos.find(repo => repo.id.toString() === repoId.toString());
+      const response = await githubService.getUserRepos();
+      // Handle different response structures
+      const repositories = response.repositories || response || [];
+      
+      const currentRepo = repositories.find(repo => repo.id.toString() === repoId.toString());
       
       if (!currentRepo) {
         throw new Error('Repository not found');
@@ -46,8 +49,10 @@ function GitHubIntegrationDetail() {
       
       // Get repository issues
       setLoadingIssues(true);
-      const issuesData = await githubService.getIssues(repoId);
-      setIssues(issuesData || []);
+      const issuesResponse = await githubService.getIssues(repoId);
+      // Handle different response structures
+      const issuesData = issuesResponse.issues || issuesResponse || [];
+      setIssues(issuesData);
       
     } catch (err) {
       console.error('Failed to fetch repository data:', err);

@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { useNotifications } from "../context/NotificationContext";
 import { useState, useEffect } from "react";
 import Notifications from "./Notifications";
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, refreshNotifications, isConnected } = useNotification();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, refreshNotifications, isConnected } = useNotifications();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);

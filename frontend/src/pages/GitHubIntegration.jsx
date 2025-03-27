@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { githubService } from "../services/utils/api";
+import { authApi } from "../services/utils/auth";
+import { useAuth } from "../context/AuthContext";
 import GitHubRepoCard from "../components/GitHubRepoCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 
@@ -17,29 +19,81 @@ const GitHubIntegration = () => {
   
   const location = useLocation();
   const navigate = useNavigate();
+  const { setCurrentUser, setError: setAuthError } = useAuth(); // Remove unused currentUser
   
-  // Check if we're returning from GitHub OAuth flow
+  useEffect(() => {
+    // Clear any auth errors when mounting this component
+    setAuthError && setAuthError(null);
+  }, [setAuthError]);
+  
+  // Function to handle the OAuth callback code
+  const handleOAuthCallback = useCallback(async (code) => {
+    try {
+      console.log("Processing GitHub OAuth callback...");
+      setIsConnecting(true);
+      
+      // Send the code to your backend
+      await githubService.completeOAuthFlow(code);
+      
+      // Check the connection status now that we've authorized
+      await checkGitHubConnection(true);
+      
+      // Clean up the URL by removing the code parameter
+      navigate('/github', { replace: true });
+    } catch (error) {
+      console.error("Failed to complete GitHub OAuth flow:", error);
+      setConnectionStatus({
+        connected: false,
+        username: '',
+        loading: false,
+        error: "Failed to connect GitHub account. Please try again."
+      });
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [navigate]); // Add dependencies
+  
+  // Check if we're returning from GitHub OAuth flow with code parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const code = urlParams.get('code');
+    const error = urlParams.get('error');
     
+    // If there's a code parameter, we're returning from GitHub authorization
     if (code) {
-      completeGitHubOAuth(code);
-      
-      // Clean up the URL
-      navigate('/github', { replace: true });
+      console.log("GitHub OAuth code detected in URL, handling callback...");
+      handleOAuthCallback(code);
     }
-  }, [location, navigate]);
+    
+    // Handle GitHub OAuth errors
+    if (error) {
+      console.error("GitHub OAuth error:", error);
+      setConnectionStatus({
+        connected: false,
+        username: '',
+        loading: false,
+        error: "GitHub authentication was denied or failed. Please try again."
+      });
+    }
+  }, [location, handleOAuthCallback]); // Add handleOAuthCallback dependency
   
-  // Check connection status on component mount
-  useEffect(() => {
-    checkGitHubConnection();
-  }, []);
-
-  const checkGitHubConnection = async () => {
+  // Define checkGitHubConnection with useCallback to fix dependency array issue
+  const checkGitHubConnection = useCallback(async (justConnected = false) => {
     try {
-      setConnectionStatus(prev => ({ ...prev, loading: true }));
+      setConnectionStatus(prev => ({ ...prev, loading: true, error: null })); // Clear any previous errors
+      
+      console.log("Checking GitHub connection status...");
       const data = await githubService.checkConnection();
+      console.log("GitHub connection status:", data);
+      
+      // If we just connected or the status changed, update local storage
+      if (justConnected || (data.connected !== connectionStatus.connected)) {
+        console.log("Updating GitHub connection status:", data.connected);
+        const updatedUser = authApi.updateGitHubStatus(data.connected, data.username);
+        if (updatedUser && typeof setCurrentUser === 'function') {
+          setCurrentUser(updatedUser);
+        }
+      }
       
       setConnectionStatus({
         connected: data.connected,
@@ -61,13 +115,24 @@ const GitHubIntegration = () => {
         error: "Failed to check GitHub connection. Please try again."
       });
     }
-  };
+  }, [connectionStatus.connected, setCurrentUser]);
+  
+  // Check connection status on component mount
+  useEffect(() => {
+    console.log("GitHubIntegration component mounted, checking connection status");
+    checkGitHubConnection();
+  }, [checkGitHubConnection]);
   
   const fetchRepositories = async () => {
     try {
       setLoadingRepos(true);
+      console.log("Fetching GitHub repositories...");
       const data = await githubService.getUserRepos();
-      setRepos(data || []);
+      console.log("GitHub repositories received:", data);
+      
+      // Check if the response contains a repositories property
+      const repos = data.repositories || data || [];
+      setRepos(repos);
     } catch (error) {
       console.error("Failed to fetch repositories:", error);
     } finally {
@@ -78,9 +143,18 @@ const GitHubIntegration = () => {
   const connectGitHub = async () => {
     try {
       setIsConnecting(true);
-      const oauthUrl = await githubService.initiateOAuthFlow();
+      console.log("Initiating GitHub OAuth flow...");
       
-      // Redirect to GitHub OAuth page
+      // Get the OAuth URL from your backend
+      const oauthUrl = await githubService.initiateOAuthFlow();
+      console.log("Received GitHub OAuth URL:", oauthUrl);
+      
+      if (!oauthUrl) {
+        throw new Error("No GitHub authorization URL received from server");
+      }
+      
+      // Redirect user to GitHub for authorization
+      console.log("Redirecting to GitHub authorization page...");
       window.location.href = oauthUrl;
     } catch (error) {
       console.error("GitHub connection error:", error);
@@ -92,30 +166,19 @@ const GitHubIntegration = () => {
     }
   };
   
-  const completeGitHubOAuth = async (code) => {
-    try {
-      setIsConnecting(true);
-      await githubService.completeOAuthFlow(code);
-      
-      // After successful connection, check status and fetch repositories
-      await checkGitHubConnection();
-    } catch (error) {
-      console.error("GitHub OAuth completion error:", error);
-      setConnectionStatus(prev => ({
-        ...prev,
-        error: "Failed to complete GitHub connection. Please try again."
-      }));
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-  
   const disconnectGitHub = async () => {
     const confirmed = window.confirm("Are you sure you want to disconnect your GitHub account? This will remove all repository links.");
     
     if (confirmed) {
       try {
+        console.log("Disconnecting GitHub account...");
         await githubService.disconnectAccount();
+        
+        // Update local storage
+        const updatedUser = authApi.updateGitHubStatus(false, '');
+        if (updatedUser && typeof setCurrentUser === 'function') {
+          setCurrentUser(updatedUser);
+        }
         
         setConnectionStatus({
           connected: false,
@@ -125,6 +188,7 @@ const GitHubIntegration = () => {
         });
         
         setRepos([]);
+        console.log("GitHub account disconnected successfully");
       } catch (error) {
         console.error("GitHub disconnect error:", error);
         setConnectionStatus(prev => ({
@@ -134,7 +198,7 @@ const GitHubIntegration = () => {
       }
     }
   };
-
+  
   if (connectionStatus.loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -142,7 +206,7 @@ const GitHubIntegration = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="container mx-auto p-4 md:p-8">
       <div className="mb-8">
