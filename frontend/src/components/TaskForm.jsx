@@ -4,7 +4,11 @@ const TaskForm = ({ onSubmit, initialData = {}, users = [], projects = [] }) => 
   const [task, setTask] = useState({
     title: initialData.title || "",
     description: initialData.description || "",
+<<<<<<< HEAD
     assignedTo: initialData.assigned_to || "",
+=======
+    assignee: initialData.assigned_to || "",
+>>>>>>> 8d205bb3afcd420430ba3421e5cbef67ad7e03d9
     project: initialData.project_id || "",
     deadline: initialData.deadline ? new Date(initialData.deadline).toISOString().split('T')[0] : "",
     status: initialData.status || "todo",
@@ -59,11 +63,19 @@ const TaskForm = ({ onSubmit, initialData = {}, users = [], projects = [] }) => 
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
+<<<<<<< HEAD
           <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
           <select
             id="assignedTo"
             value={task.assignedTo}
             onChange={(e) => setTask({ ...task, assignedTo: e.target.value })}
+=======
+          <label htmlFor="assignee" className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+          <select
+            id="assignee"
+            value={task.assignee}
+            onChange={(e) => setTask({ ...task, assignee: e.target.value })}
+>>>>>>> 8d205bb3afcd420430ba3421e5cbef67ad7e03d9
             className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Select Assignee</option>
