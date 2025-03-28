@@ -286,6 +286,120 @@ class TestAdminController(unittest.TestCase):
         # Check response
         self.assertEqual(code, 404)
         self.assertEqual(data['message'], 'User not found')
+    
+    @patch('backend.src.api.controllers.admin_controller.User')
+    @patch('backend.src.api.controllers.admin_controller.Project')
+    @patch('backend.src.api.controllers.admin_controller.Task')
+    def test_get_system_stats_actual(self, mock_task, mock_project, mock_user):
+        # Import the function directly to test
+        from backend.src.api.controllers.admin_controller import get_system_stats
+        from backend.src.auth.rbac import Role
+        
+        # Setup mock users
+        mock_admin = MagicMock(role=Role.ADMIN.value)
+        mock_client = MagicMock(role=Role.CLIENT.value)
+        mock_users = [mock_admin, mock_client, mock_client]
+        mock_user.query.all.return_value = mock_users
+        
+        # Setup mock projects
+        mock_active_project = MagicMock(status='active')
+        mock_completed_project = MagicMock(status='completed')
+        mock_hold_project = MagicMock(status='on_hold')
+        mock_projects = [mock_active_project, mock_completed_project, mock_hold_project]
+        mock_project.query.all.return_value = mock_projects
+        
+        # Setup mock tasks
+        mock_todo = MagicMock(status='todo')
+        mock_in_progress = MagicMock(status='in_progress')
+        mock_review = MagicMock(status='review')
+        mock_done = MagicMock(status='done')
+        mock_tasks = [mock_todo, mock_in_progress, mock_review, mock_done]
+        mock_task.query.all.return_value = mock_tasks
+        
+        # Execute the function
+        with app.test_request_context():
+            response = get_system_stats()
+            data = json.loads(response.data)
+        
+        # Verify the results
+        self.assertIn('users', data)
+        self.assertIn('projects', data)
+        self.assertIn('tasks', data)
+        
+        # Check user stats
+        self.assertEqual(data['users']['total'], 3)
+        self.assertEqual(data['users']['admins'], 1)
+        self.assertEqual(data['users']['clients'], 2)
+        
+        # Check project stats
+        self.assertEqual(data['projects']['total'], 3)
+        self.assertEqual(data['projects']['active'], 1)
+        self.assertEqual(data['projects']['completed'], 1)
+        self.assertEqual(data['projects']['on_hold'], 1)
+        
+        # Check task stats
+        self.assertEqual(data['tasks']['total'], 4)
+        self.assertEqual(data['tasks']['todo'], 1)
+        self.assertEqual(data['tasks']['in_progress'], 1)
+        self.assertEqual(data['tasks']['review'], 1)
+        self.assertEqual(data['tasks']['done'], 1)
+    
+    def test_get_system_settings_actual(self):
+        # Import the function directly to test
+        from backend.src.api.controllers.admin_controller import get_system_settings
+        from backend.src.auth.rbac import Role
+        
+        # Execute the function
+        with app.test_request_context():
+            response = get_system_settings()
+            data = json.loads(response.data)
+        
+        # Verify the results
+        self.assertIn('settings', data)
+        settings = data['settings']
+        
+        # Check settings fields
+        self.assertEqual(settings['app_name'], 'DevSync')
+        self.assertTrue(settings['allow_registration'])
+        self.assertEqual(settings['default_user_role'], Role.CLIENT.value)
+        self.assertTrue(settings['github_integration_enabled'])
+        
+        # Check notification settings
+        notification_settings = settings['notification_settings']
+        self.assertTrue(notification_settings['email_notifications'])
+        self.assertTrue(notification_settings['task_assignments'])
+        self.assertTrue(notification_settings['project_updates'])
+    
+    @patch('backend.src.api.controllers.admin_controller.validate_system_settings')
+    def test_update_system_settings_actual_success(self, mock_validate):
+        # Import the function directly to test
+        from backend.src.api.controllers.admin_controller import update_system_settings
+        from backend.src.auth.rbac import Role
+        
+        # Setup test data
+        test_data = {
+            'app_name': 'DevSync', 
+            'allow_registration': True, 
+            'default_user_role': Role.CLIENT.value, 
+            'github_integration_enabled': True, 
+            'notification_settings': {
+                'email_notifications': True, 
+                'task_assignments': True, 
+                'project_updates': True
+            }
+        }
+        
+        # Configure validation mock
+        mock_validate.return_value = None  # Validation succeeds
+        
+        # Execute the function with test request context
+        with app.test_request_context(json=test_data):
+            response = update_system_settings()
+            data = json.loads(response.data)
+        
+        # Verify the results
+        self.assertEqual(data['message'], 'System settings updated successfully')
+        self.assertEqual(data['settings'], test_data)
 
 if __name__ == '__main__':
     unittest.main()

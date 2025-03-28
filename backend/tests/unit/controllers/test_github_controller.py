@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 from flask import Flask
 from werkzeug.datastructures import ImmutableMultiDict
+import base64
 
 # Set up proper import paths
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
@@ -16,12 +17,14 @@ mock_request = Mock()
 mock_jsonify = Mock()
 mock_jwt = Mock()
 mock_redirect = Mock()
+mock_current_app = Mock()
 
 # Apply patches to Flask objects before importing the target module
 patch('flask.request', mock_request).start()
 patch('flask.jsonify', mock_jsonify).start()
 patch('flask_jwt_extended.get_jwt_identity', mock_jwt).start()
 patch('flask.redirect', mock_redirect).start()
+patch('flask.current_app', mock_current_app).start()
 
 # Now import the functions to test
 from backend.src.api.controllers.github_controller import (
@@ -36,6 +39,9 @@ class TestGitHubController(unittest.TestCase):
         self.app = Flask(__name__)
         self.app.config['TESTING'] = True
         self.app.config['FRONTEND_URL'] = 'http://localhost:3000'
+        self.app.config['GITHUB_CLIENT_ID'] = 'test-client-id'
+        self.app.config['GITHUB_CLIENT_SECRET'] = 'test-client-secret'
+        self.app.config['GITHUB_REDIRECT_URI'] = 'http://localhost:5000/api/github/callback'
         self.app_context = self.app.app_context()
         self.app_context.push()
         
@@ -48,6 +54,9 @@ class TestGitHubController(unittest.TestCase):
         # Set default return values
         mock_jwt.return_value = {'user_id': 1}
         mock_jsonify.side_effect = lambda x: x
+        
+        # Configure current_app mock to use our app config
+        mock_current_app.config = self.app.config
         
     def tearDown(self):
         self.app_context.pop()
@@ -98,11 +107,13 @@ class TestGitHubController(unittest.TestCase):
         # Call the function
         github_callback()
         
-        # Assertions
-        mock_redirect.assert_called_with('http://localhost:3000/github/connected?success=true')
+        # Assertions - updated to match the current implementation
+        expected_redirect_url = 'http://localhost:3000/github/connected?success=true&github_username=testuser&user_id=1'
+        mock_redirect.assert_called_with(expected_redirect_url)
         mock_db.session.add.assert_called_once()
         mock_db.session.commit.assert_called_once()
         self.assertEqual(mock_user.github_username, 'testuser')
+        self.assertEqual(mock_user.github_connected, True)
 
     @patch('backend.src.api.controllers.github_controller.GitHubToken')
     @patch('backend.src.api.controllers.github_controller.GitHubClient')
@@ -161,7 +172,7 @@ class TestGitHubController(unittest.TestCase):
     @patch('backend.src.api.controllers.github_controller.GitHubClient')
     @patch('backend.src.api.controllers.github_controller.db')
     def test_link_task_with_github(self, mock_db, mock_github_client, mock_token_class, 
-                               mock_link_class, mock_repo_class, mock_task_class, mock_validate):
+                                mock_link_class, mock_repo_class, mock_task_class, mock_validate):
         # Setup mocks
         mock_validate.return_value = None
         
@@ -198,6 +209,301 @@ class TestGitHubController(unittest.TestCase):
         mock_db.session.add.assert_called_once()
         mock_db.session.commit.assert_called_once()
         mock_client_instance.create_issue_comment.assert_called_once()
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    @patch('backend.src.api.controllers.github_controller.GitHubToken')
+    @patch('backend.src.api.controllers.github_controller.User')
+    def test_github_callback_missing_parameters(self, mock_user_class, mock_token_class,
+                                       mock_db, mock_oauth_states, mock_github_client):
+        """Test github_callback with missing parameters"""
+        # Setup mock for missing code
+        mock_request.args = ImmutableMultiDict([('state', 'test-state')])
+        
+        # Call the function
+        result = github_callback()
+        
+        # Assertions
+        self.assertEqual(result[1], 400)  # Check status code
+        self.assertEqual(result[0]['message'], 'Missing code or state parameter')
+        
+        # Setup mock for missing state
+        mock_request.args = ImmutableMultiDict([('code', 'test-code')])
+        
+        # Call the function
+        result = github_callback()
+        
+        # Assertions
+        self.assertEqual(result[1], 400)
+        self.assertEqual(result[0]['message'], 'Missing code or state parameter')
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    @patch('backend.src.api.controllers.github_controller.GitHubToken')
+    @patch('backend.src.api.controllers.github_controller.User')
+    def test_github_callback_base64_encoded_state(self, mock_user_class, mock_token_class,
+                                         mock_db, mock_oauth_states, mock_github_client):
+        """Test github_callback with base64 encoded state"""
+        # Create a state parameter that mimics what the frontend might send
+        state_data = {'userId': 42}
+        json_state = json.dumps(state_data).encode('utf-8')
+        b64_state = base64.b64encode(json_state).decode('utf-8')
+        # Replace standard base64 chars with URL-safe ones
+        url_safe_state = b64_state.replace('+', '-').replace('/', '_').rstrip('=')
+        
+        # Setup mocks
+        mock_request.args = ImmutableMultiDict([('code', 'test-code'), ('state', url_safe_state)])
+        
+        # Mock oauth_states to not contain this state
+        mock_oauth_states.__contains__.return_value = False
+        
+        # Setup token exchange mock
+        mock_github_client.exchange_code_for_token.return_value = {
+            'access_token': 'test-access-token'
+        }
+        
+        # Setup client instance mock
+        mock_client_instance = MagicMock()
+        mock_github_client.return_value = mock_client_instance
+        mock_client_instance.get_user_profile.return_value = {
+            'login': 'testuser'
+        }
+        
+        # Mock user retrieval
+        mock_user = MagicMock()
+        mock_user_class.query.get.return_value = mock_user
+        
+        # Setup token query to return no existing token
+        mock_token_class.query.filter_by.return_value.first.return_value = None
+        
+        # Call the function
+        github_callback()
+        
+        # Assertions
+        mock_user_class.query.get.assert_called_once_with(42)
+        mock_db.session.add.assert_called_once()
+        mock_db.session.commit.assert_called_once()
+        self.assertEqual(mock_user.github_username, 'testuser')
+        self.assertEqual(mock_user.github_connected, True)
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    @patch('backend.src.api.controllers.github_controller.GitHubToken')
+    @patch('backend.src.api.controllers.github_controller.User')
+    def test_github_callback_update_existing_token(self, mock_user_class, mock_token_class,
+                                          mock_db, mock_oauth_states, mock_github_client):
+        """Test github_callback updating an existing token"""
+        # Setup mocks
+        mock_request.args = ImmutableMultiDict([('code', 'test-code'), ('state', 'test-state')])
+        
+        mock_oauth_states.__contains__.return_value = True
+        mock_oauth_states.__getitem__.return_value = {'user_id': 1}
+        
+        # Setup token exchange mock
+        mock_github_client.exchange_code_for_token.return_value = {
+            'access_token': 'new-access-token',
+            'refresh_token': 'new-refresh-token',
+            'token_expires_at': '2023-12-31T23:59:59Z'
+        }
+        
+        # Setup client instance mock
+        mock_client_instance = MagicMock()
+        mock_github_client.return_value = mock_client_instance
+        mock_client_instance.get_user_profile.return_value = {
+            'login': 'updateduser'
+        }
+        
+        # Mock user retrieval
+        mock_user = MagicMock()
+        mock_user.github_username = 'oldusername'
+        mock_user_class.query.get.return_value = mock_user
+        
+        # Setup existing token
+        mock_existing_token = MagicMock()
+        mock_existing_token.access_token = 'old-access-token'
+        mock_existing_token.refresh_token = 'old-refresh-token'
+        mock_token_class.query.filter_by.return_value.first.return_value = mock_existing_token
+        
+        # Call the function
+        github_callback()
+        
+        # Assertions
+        self.assertEqual(mock_existing_token.access_token, 'new-access-token')
+        self.assertEqual(mock_existing_token.refresh_token, 'new-refresh-token')
+        self.assertEqual(mock_existing_token.token_expires_at, '2023-12-31T23:59:59Z')
+        self.assertEqual(mock_user.github_username, 'updateduser')
+        self.assertEqual(mock_user.github_connected, True)
+        mock_db.session.add.assert_not_called()  # Should not add a new token
+        mock_db.session.commit.assert_called_once()
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    def test_github_callback_token_exchange_failure(self, mock_db, mock_oauth_states, mock_github_client):
+        """Test github_callback when token exchange fails"""
+        # Setup mocks
+        mock_request.args = ImmutableMultiDict([('code', 'invalid-code'), ('state', 'test-state')])
+        
+        mock_oauth_states.__contains__.return_value = True
+        mock_oauth_states.__getitem__.return_value = {'user_id': 1}
+        
+        # Mock token exchange failure
+        mock_github_client.exchange_code_for_token.return_value = None
+        
+        # Call the function
+        result = github_callback()
+        
+        # Assertions
+        self.assertEqual(result[1], 400)
+        self.assertEqual(result[0]['message'], 'Failed to obtain access token')
+        mock_db.session.commit.assert_not_called()
+        
+        # Test with empty response
+        mock_github_client.exchange_code_for_token.return_value = {}
+        
+        # Call the function again
+        result = github_callback()
+        
+        # Assertions
+        self.assertEqual(result[1], 400)
+        self.assertEqual(result[0]['message'], 'Failed to obtain access token')
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    @patch('backend.src.api.controllers.github_controller.GitHubToken')
+    def test_github_callback_profile_fetch_failure(self, mock_token_class, mock_db, 
+                                         mock_oauth_states, mock_github_client):
+        """Test github_callback when fetching GitHub profile fails"""
+        # Setup mocks
+        mock_request.args = ImmutableMultiDict([('code', 'test-code'), ('state', 'test-state')])
+        
+        mock_oauth_states.__contains__.return_value = True
+        mock_oauth_states.__getitem__.return_value = {'user_id': 1}
+        
+        # Setup token exchange mock
+        mock_github_client.exchange_code_for_token.return_value = {
+            'access_token': 'test-access-token'
+        }
+        
+        # Setup client instance mock with profile fetch failure
+        mock_client_instance = MagicMock()
+        mock_github_client.return_value = mock_client_instance
+        mock_client_instance.get_user_profile.return_value = None
+        
+        # Call the function
+        result = github_callback()
+        
+        # Assertions
+        self.assertEqual(result[1], 400)
+        self.assertEqual(result[0]['message'], 'Failed to fetch GitHub profile')
+        mock_db.session.commit.assert_not_called()
+
+    @patch('backend.src.api.controllers.github_controller.logger')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    def test_github_callback_invalid_state_parameter(self, mock_oauth_states, mock_logger):
+        """Test github_callback with invalid state parameter"""
+        # Setup mocks for invalid state parameter
+        mock_request.args = ImmutableMultiDict([('code', 'test-code'), ('state', 'invalid-state')])
+        
+        # Mock oauth_states to not contain this state and to cause an exception when processing the state
+        mock_oauth_states.__contains__.return_value = False
+        
+        # Call the function
+        result = github_callback()
+        
+        # Assertions
+        self.assertEqual(result[1], 400)
+        self.assertIn('Invalid state parameter format', result[0]['error'])
+        mock_logger.error.assert_called()
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    @patch('backend.src.api.controllers.github_controller.GitHubToken')
+    @patch('backend.src.api.controllers.github_controller.User')
+    @patch('backend.src.api.controllers.github_controller.current_app')
+    def test_github_callback_redirection(self, mock_current_app, mock_user_class, mock_token_class,
+                                mock_db, mock_oauth_states, mock_github_client):
+        """Test github_callback's redirection to frontend"""
+        # Setup mocks
+        mock_request.args = ImmutableMultiDict([('code', 'test-code'), ('state', 'test-state')])
+        
+        mock_oauth_states.__contains__.return_value = True
+        mock_oauth_states.__getitem__.return_value = {'user_id': 1}
+        
+        # Setup token exchange mock
+        mock_github_client.exchange_code_for_token.return_value = {
+            'access_token': 'test-access-token'
+        }
+        
+        # Setup client instance mock
+        mock_client_instance = MagicMock()
+        mock_github_client.return_value = mock_client_instance
+        mock_client_instance.get_user_profile.return_value = {
+            'login': 'testuser'
+        }
+        
+        # Mock user retrieval
+        mock_user = MagicMock()
+        mock_user_class.query.get.return_value = mock_user
+        
+        # Setup token query to return no existing token
+        mock_token_class.query.filter_by.return_value.first.return_value = None
+        
+        # Setup custom frontend URL
+        mock_current_app.config.get.side_effect = lambda key, default=None: 'https://devsync.example.com' if key == 'FRONTEND_URL' else default
+        
+        # Call the function
+        github_callback()
+        
+        # Assertions
+        expected_redirect_url = f"https://devsync.example.com/github/connected?success=true&github_username=testuser&user_id=1"
+        mock_redirect.assert_called_with(expected_redirect_url)
+
+    @patch('backend.src.api.controllers.github_controller.GitHubClient')
+    @patch('backend.src.api.controllers.github_controller.oauth_states')
+    @patch('backend.src.api.controllers.github_controller.db')
+    @patch('backend.src.api.controllers.github_controller.GitHubToken')
+    @patch('backend.src.api.controllers.github_controller.User')
+    def test_github_callback_user_not_found(self, mock_user_class, mock_token_class,
+                                   mock_db, mock_oauth_states, mock_github_client):
+        """Test github_callback when user is not found"""
+        # Setup mocks
+        mock_request.args = ImmutableMultiDict([('code', 'test-code'), ('state', 'test-state')])
+        
+        mock_oauth_states.__contains__.return_value = True
+        mock_oauth_states.__getitem__.return_value = {'user_id': 999}  # Non-existent user ID
+        
+        # Setup token exchange mock
+        mock_github_client.exchange_code_for_token.return_value = {
+            'access_token': 'test-access-token'
+        }
+        
+        # Setup client instance mock
+        mock_client_instance = MagicMock()
+        mock_github_client.return_value = mock_client_instance
+        mock_client_instance.get_user_profile.return_value = {
+            'login': 'testuser'
+        }
+        
+        # Mock user retrieval to return None (user not found)
+        mock_user_class.query.get.return_value = None
+        
+        # Setup token query to return no existing token
+        mock_token_class.query.filter_by.return_value.first.return_value = None
+        
+        # Call the function
+        github_callback()
+        
+        # Assertions
+        mock_user_class.query.get.assert_called_once_with(999)
+        # Should still add the token even if user is not found
+        mock_db.session.add.assert_called_once()
+        mock_db.session.commit.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()

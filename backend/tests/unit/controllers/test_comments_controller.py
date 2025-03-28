@@ -148,5 +148,18 @@ class TestCommentsController(unittest.TestCase):
         mock_db.session.delete.assert_called_once_with(self.mock_comment)
         mock_db.session.commit.assert_called_once()
 
+        @patch('backend.src.api.controllers.comments_controller.get_jwt_identity')
+        @patch('backend.src.api.controllers.comments_controller.get_jwt')
+        @patch('backend.src.api.controllers.comments_controller.Comment')
+        @patch('backend.src.api.controllers.comments_controller.jsonify')
+        def test_update_comment_unauthorized(self, mock_jsonify, mock_comment_class, mock_get_jwt, mock_jwt_identity):
+            """Test updating a comment when user is not authorized"""
+            # Import locally to allow patching
+            
+            # Set up jsonify to return tuple with response and status code
+            mock_jsonify.side_effect = lambda x: (x, 403)
+            
+            # Set up mocks
+            mock_jwt_identity.return_value = {'user_id': 2}  # Different from comment.user_id
 if __name__ == '__main__':
     unittest.main()

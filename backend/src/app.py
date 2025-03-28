@@ -26,7 +26,7 @@ else:
     from .socketio_server import init_socketio
 
 from datetime import timedelta
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify, make_response, send_file
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
@@ -43,25 +43,35 @@ def log_routes(app):
 def create_app(config_class=None):
     app = Flask(__name__)
     app.config.from_object(config_class or get_config())
-
-    # Swagger UI Setup
-    SWAGGER_URL = "/api/docs"
-    API_DOCS_PATH = "api/swagger.yaml"
-
-    with open(API_DOCS_PATH, "r") as file:
-        swagger_yaml = yaml.safe_load(file)
-
+    
+    # Set up Swagger UI with the correct file path
+    SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI
+    API_URL = '/api/swagger.yaml'  # Our API url where the Swagger file is served
+    
+    # Create Swagger UI blueprint
     swaggerui_blueprint = get_swaggerui_blueprint(
-        SWAGGER_URL,  # URL to access Swagger UI
-        API_DOCS_PATH,  # API docs path (can be a file or a URL)
-        config={"app_name": "DevSync API"}
+        SWAGGER_URL,
+        API_URL,
+        config={
+            'app_name': "DevSync API Documentation"
+        }
     )
-
+    
+    # Register blueprint at URL
     app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
-
-    @app.route("/api/swagger.yaml")
-    def swagger_yaml():
-        return jsonify(swagger_yaml)
+    
+    # Make sure the directory exists for the swagger file
+    swagger_dir = os.path.join(os.path.dirname(__file__), 'api')
+    os.makedirs(swagger_dir, exist_ok=True)
+    swagger_path = os.path.join(swagger_dir, 'swagger.yaml')
+    
+    @app.route('/api/swagger.yaml')
+    def serve_swagger_spec():
+        """Serve the Swagger YAML file"""
+        try:
+            return send_file(swagger_path, mimetype='text/yaml')
+        except Exception as e:
+            return jsonify({"error": f"Could not load Swagger file: {str(e)}"}), 500
     
     # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///devsync.db')
@@ -157,7 +167,9 @@ def create_app(config_class=None):
         '/api/v1/auth/login',
         '/api/v1/github/callback',
         '/api/v1/github/exchange',
-        '/api/v1/github/connect'
+        '/api/v1/github/connect',
+        '/api/docs',
+        '/api/swagger.yaml'
     ]
     
     # Middleware to remove Flask-JWT auth requirements for public routes
