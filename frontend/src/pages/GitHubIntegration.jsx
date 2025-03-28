@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { githubService } from "../services/utils/api";
+import { githubService } from "../services/github"; 
 import { authApi } from "../services/utils/auth";
 import { useAuth } from "../context/AuthContext";
 import GitHubRepoCard from "../components/GitHubRepoCard";
@@ -11,7 +11,8 @@ const GitHubIntegration = () => {
     connected: false,
     username: '',
     loading: true,
-    error: null
+    error: null,
+    rateLimitError: false
   });
   const [repos, setRepos] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -19,21 +20,133 @@ const GitHubIntegration = () => {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const { setCurrentUser, setError: setAuthError } = useAuth(); // Remove unused currentUser
+  const { currentUser, setCurrentUser, setError: setAuthError } = useAuth();
   
+  // Define fetchRepositories function earlier so it can be referenced
+  const fetchRepositories = async () => {
+    try {
+      setLoadingRepos(true);
+      console.log("Fetching GitHub repositories...");
+      const data = await githubService.getUserRepos();
+      console.log("GitHub repositories received:", data);
+      
+      // Ensure we have an array of repos
+      const repos = Array.isArray(data) ? data : (data?.repositories || []);
+      setRepos(repos);
+    } catch (error) {
+      console.error("Failed to fetch repositories:", error);
+      // Check for rate limit error
+      const rateLimitInfo = githubService.handleRateLimitError(error);
+      if (rateLimitInfo) {
+        setConnectionStatus(prev => ({
+          ...prev,
+          error: rateLimitInfo.message,
+          rateLimitError: true,
+          rateLimitInfo
+        }));
+      } else {
+        setConnectionStatus(prev => ({
+          ...prev,
+          error: "Failed to fetch repositories. Please try again later."
+        }));
+      }
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
+
   useEffect(() => {
     // Clear any auth errors when mounting this component
     setAuthError && setAuthError(null);
-  }, [setAuthError]);
+    
+    // Log current user info
+    if (currentUser) {
+      console.log("GitHubIntegration - Current user:", 
+        currentUser.email, 
+        "Role:", currentUser.role, 
+        "GitHub connected:", currentUser.github_connected);
+    } else {
+      console.log("GitHubIntegration - No current user found");
+    }
+  }, [setAuthError, currentUser]);
+  
+  // Define checkGitHubConnection with useCallback to fix dependency array issue
+  const checkGitHubConnection = useCallback(async (justConnected = false) => {
+    try {
+      setConnectionStatus(prev => ({ ...prev, loading: true, error: null, rateLimitError: false }));
+      
+      console.log("Checking GitHub connection status...");
+      const data = await githubService.checkConnection();
+      console.log("GitHub connection status:", data);
+      
+      // If we just connected or the status changed, update local storage
+      if (justConnected || (data.connected !== connectionStatus.connected)) {
+        console.log("Updating GitHub connection status:", data.connected);
+        const updatedUser = authApi.updateGitHubStatus(data.connected, data.username);
+        if (updatedUser && typeof setCurrentUser === 'function') {
+          setCurrentUser(updatedUser);
+        }
+      }
+      
+      setConnectionStatus({
+        connected: data.connected,
+        username: data.username || '',
+        loading: false,
+        error: null,
+        rateLimitError: false
+      });
+      
+      // If connected, fetch repositories
+      if (data.connected) {
+        fetchRepositories();
+      }
+    } catch (error) {
+      console.error("Error checking GitHub connection status:", error);
+      
+      // Handle 401 errors specially - likely not authenticated
+      if (error.status === 401) {
+        setConnectionStatus({
+          connected: false,
+          username: '',
+          loading: false,
+          error: "Authentication required. Please login again.",
+          rateLimitError: false
+        });
+        return;
+      }
+      
+      // Check for rate limit error specifically
+      const rateLimitInfo = githubService.handleRateLimitError(error);
+      if (rateLimitInfo) {
+        setConnectionStatus({
+          connected: false,
+          username: '',
+          loading: false,
+          error: rateLimitInfo.message,
+          rateLimitError: true,
+          rateLimitInfo
+        });
+      } else {
+        setConnectionStatus({
+          connected: false,
+          username: '',
+          loading: false,
+          error: "Failed to check GitHub connection status. Please try again.",
+          rateLimitError: false
+        });
+      }
+    }
+  }, [setCurrentUser, connectionStatus.connected]);
   
   // Function to handle the OAuth callback code
   const handleOAuthCallback = useCallback(async (code) => {
     try {
-      console.log("Processing GitHub OAuth callback...");
+      console.log("Processing GitHub OAuth callback with code:", code.substring(0, 5) + "...");
       setIsConnecting(true);
       
       // Send the code to your backend
-      await githubService.completeOAuthFlow(code);
+      const result = await githubService.completeOAuthFlow(code);
+      console.log("OAuth flow completion result:", result);
       
       // Check the connection status now that we've authorized
       await checkGitHubConnection(true);
@@ -42,16 +155,31 @@ const GitHubIntegration = () => {
       navigate('/github', { replace: true });
     } catch (error) {
       console.error("Failed to complete GitHub OAuth flow:", error);
-      setConnectionStatus({
-        connected: false,
-        username: '',
-        loading: false,
-        error: "Failed to connect GitHub account. Please try again."
-      });
+      
+      // Check for rate limit error specifically
+      const rateLimitInfo = githubService.handleRateLimitError(error);
+      if (rateLimitInfo) {
+        setConnectionStatus({
+          connected: false,
+          username: '',
+          loading: false,
+          error: rateLimitInfo.message,
+          rateLimitError: true,
+          rateLimitInfo
+        });
+      } else {
+        setConnectionStatus({
+          connected: false,
+          username: '',
+          loading: false,
+          error: "Failed to connect GitHub account. Please try again.",
+          rateLimitError: false
+        });
+      }
     } finally {
       setIsConnecting(false);
     }
-  }, [navigate]); // Add dependencies
+  }, [navigate, checkGitHubConnection]);
   
   // Check if we're returning from GitHub OAuth flow with code parameter
   useEffect(() => {
@@ -72,50 +200,11 @@ const GitHubIntegration = () => {
         connected: false,
         username: '',
         loading: false,
-        error: "GitHub authentication was denied or failed. Please try again."
+        error: "GitHub authentication was denied or failed. Please try again.",
+        rateLimitError: false
       });
     }
-  }, [location, handleOAuthCallback]); // Add handleOAuthCallback dependency
-  
-  // Define checkGitHubConnection with useCallback to fix dependency array issue
-  const checkGitHubConnection = useCallback(async (justConnected = false) => {
-    try {
-      setConnectionStatus(prev => ({ ...prev, loading: true, error: null })); // Clear any previous errors
-      
-      console.log("Checking GitHub connection status...");
-      const data = await githubService.checkConnection();
-      console.log("GitHub connection status:", data);
-      
-      // If we just connected or the status changed, update local storage
-      if (justConnected || (data.connected !== connectionStatus.connected)) {
-        console.log("Updating GitHub connection status:", data.connected);
-        const updatedUser = authApi.updateGitHubStatus(data.connected, data.username);
-        if (updatedUser && typeof setCurrentUser === 'function') {
-          setCurrentUser(updatedUser);
-        }
-      }
-      
-      setConnectionStatus({
-        connected: data.connected,
-        username: data.username || '',
-        loading: false,
-        error: null
-      });
-      
-      // If connected, fetch repositories
-      if (data.connected) {
-        fetchRepositories();
-      }
-    } catch (error) {
-      console.error("GitHub connection check error:", error);
-      setConnectionStatus({
-        connected: false,
-        username: '',
-        loading: false,
-        error: "Failed to check GitHub connection. Please try again."
-      });
-    }
-  }, [connectionStatus.connected, setCurrentUser]);
+  }, [location, handleOAuthCallback]);
   
   // Check connection status on component mount
   useEffect(() => {
@@ -123,29 +212,13 @@ const GitHubIntegration = () => {
     checkGitHubConnection();
   }, [checkGitHubConnection]);
   
-  const fetchRepositories = async () => {
-    try {
-      setLoadingRepos(true);
-      console.log("Fetching GitHub repositories...");
-      const data = await githubService.getUserRepos();
-      console.log("GitHub repositories received:", data);
-      
-      // Check if the response contains a repositories property
-      const repos = data.repositories || data || [];
-      setRepos(repos);
-    } catch (error) {
-      console.error("Failed to fetch repositories:", error);
-    } finally {
-      setLoadingRepos(false);
-    }
-  };
-  
   const connectGitHub = async () => {
     try {
-      setIsConnecting(true);
       console.log("Initiating GitHub OAuth flow...");
+      setIsConnecting(true);
+      setConnectionStatus(prev => ({ ...prev, error: null, rateLimitError: false }));
       
-      // Get the OAuth URL from your backend
+      // Get the OAuth URL from our service
       const oauthUrl = await githubService.initiateOAuthFlow();
       console.log("Received GitHub OAuth URL:", oauthUrl);
       
@@ -159,10 +232,22 @@ const GitHubIntegration = () => {
     } catch (error) {
       console.error("GitHub connection error:", error);
       setIsConnecting(false);
-      setConnectionStatus(prev => ({
-        ...prev,
-        error: "Failed to connect to GitHub. Please try again."
-      }));
+      
+      // Check for rate limit error
+      const rateLimitInfo = githubService.handleRateLimitError(error);
+      if (rateLimitInfo) {
+        setConnectionStatus({
+          ...connectionStatus,
+          error: rateLimitInfo.message,
+          rateLimitError: true,
+          rateLimitInfo
+        });
+      } else {
+        setConnectionStatus(prev => ({
+          ...prev,
+          error: error.message || "Failed to connect to GitHub. Please try again."
+        }));
+      }
     }
   };
   
@@ -184,19 +269,57 @@ const GitHubIntegration = () => {
           connected: false,
           username: '',
           loading: false,
-          error: null
+          error: null,
+          rateLimitError: false
         });
         
         setRepos([]);
         console.log("GitHub account disconnected successfully");
       } catch (error) {
         console.error("GitHub disconnect error:", error);
-        setConnectionStatus(prev => ({
-          ...prev,
-          error: "Failed to disconnect from GitHub. Please try again."
-        }));
+        // Check for rate limit error
+        const rateLimitInfo = githubService.handleRateLimitError(error);
+        if (rateLimitInfo) {
+          setConnectionStatus({
+            ...connectionStatus,
+            error: rateLimitInfo.message,
+            rateLimitError: true,
+            rateLimitInfo
+          });
+        } else {
+          setConnectionStatus(prev => ({
+            ...prev,
+            error: "Failed to disconnect from GitHub. Please try again."
+          }));
+        }
       }
     }
+  };
+  
+  // Render a special message for rate limit errors
+  const renderRateLimitError = () => {
+    if (connectionStatus.rateLimitError && connectionStatus.rateLimitInfo) {
+      const { title, message, suggestion } = connectionStatus.rateLimitInfo;
+      return (
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4">
+          <h3 className="font-semibold">{title}</h3>
+          <p className="mt-1">{message}</p>
+          {suggestion && <p className="mt-2 text-sm opacity-75">{suggestion}</p>}
+          <p className="mt-3 text-sm">
+            <a 
+              href="https://docs.github.com/en/rest/rate-limit" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              Learn more about GitHub API rate limits
+            </a>
+          </p>
+        </div>
+      );
+    }
+    
+    return null;
   };
   
   if (connectionStatus.loading) {
@@ -212,7 +335,7 @@ const GitHubIntegration = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-4">GitHub Integration</h1>
         
-        {connectionStatus.error && (
+        {connectionStatus.rateLimitError ? renderRateLimitError() : connectionStatus.error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {connectionStatus.error}
           </div>
@@ -279,7 +402,19 @@ const GitHubIntegration = () => {
             
             {/* GitHub Repositories Section */}
             <div className="p-6">
-              <h3 className="text-lg font-medium mb-4">Your Repositories</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Your Repositories</h3>
+                <button 
+                  onClick={fetchRepositories}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded flex items-center"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+              
               {loadingRepos ? (
                 <div className="flex justify-center py-10">
                   <LoadingSpinner />

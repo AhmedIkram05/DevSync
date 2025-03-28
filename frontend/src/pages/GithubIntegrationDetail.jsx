@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { githubService, taskService } from '../services/utils/api'; 
+import { githubService } from '../services/github'; // Updated import to use consolidated service
+import { taskService } from '../services/utils/api'; 
 import LoadingSpinner from '../components/LoadingSpinner';
-import GitHubIssueCard from '../components/GitHubIssueCard';
 
 function GitHubIntegrationDetail() {
   const { repoId } = useParams();
@@ -19,50 +19,7 @@ function GitHubIntegrationDetail() {
   const [linkingIssue, setLinkingIssue] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Fetch repository details and issues on component mount
-  useEffect(() => {
-    if (!repoId) {
-      navigate('/github');
-      return;
-    }
-    
-    fetchRepositoryData();
-    fetchAvailableTasks();
-  }, [repoId, navigate]);
-
-  const fetchRepositoryData = async () => {
-    try {
-      setLoading(true);
-      
-      // Get repository details
-      const response = await githubService.getUserRepos();
-      // Handle different response structures
-      const repositories = response.repositories || response || [];
-      
-      const currentRepo = repositories.find(repo => repo.id.toString() === repoId.toString());
-      
-      if (!currentRepo) {
-        throw new Error('Repository not found');
-      }
-      
-      setRepository(currentRepo);
-      
-      // Get repository issues
-      setLoadingIssues(true);
-      const issuesResponse = await githubService.getIssues(repoId);
-      // Handle different response structures
-      const issuesData = issuesResponse.issues || issuesResponse || [];
-      setIssues(issuesData);
-      
-    } catch (err) {
-      console.error('Failed to fetch repository data:', err);
-      setError('Failed to fetch repository data. Please try again.');
-    } finally {
-      setLoading(false);
-      setLoadingIssues(false);
-    }
-  };
-
+  // Fetch available tasks
   const fetchAvailableTasks = async () => {
     try {
       setLoadingTasks(true);
@@ -81,6 +38,48 @@ function GitHubIntegrationDetail() {
       setLoadingTasks(false);
     }
   };
+
+  useEffect(() => {
+    if (!repoId) {
+      navigate('/github');
+      return;
+    }
+    
+    // Moved fetchRepositoryData inside useEffect to fix dependency array warning
+    const fetchRepositoryData = async () => {
+      try {
+        setLoading(true);
+        
+        // Get repository details using consolidated GitHub service
+        const repositories = await githubService.getUserRepos();
+        
+        const currentRepo = repositories.find(repo => repo.id.toString() === repoId.toString());
+        
+        if (!currentRepo) {
+          throw new Error('Repository not found');
+        }
+        
+        setRepository(currentRepo);
+        
+        // Get repository issues using consolidated GitHub service
+        setLoadingIssues(true);
+        const issuesResponse = await githubService.getIssues(repoId);
+        // Handle different response structures
+        const issuesData = issuesResponse.issues || issuesResponse || [];
+        setIssues(issuesData);
+        
+      } catch (err) {
+        console.error('Failed to fetch repository data:', err);
+        setError('Failed to fetch repository data. Please try again.');
+      } finally {
+        setLoading(false);
+        setLoadingIssues(false);
+      }
+    };
+
+    fetchRepositoryData();
+    fetchAvailableTasks();
+  }, [repoId, navigate]); // Removed fetchRepositoryData from dependencies
 
   const handleLinkIssue = async (issueId) => {
     if (!selectedTask || !issueId) {

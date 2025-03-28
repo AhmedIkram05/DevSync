@@ -46,7 +46,6 @@ const Navbar = () => {
   if (!currentUser) return null;
   
   const isAdmin = currentUser.role === "admin";
-  const isDeveloper = currentUser.role === "developer" || currentUser.role === "client";
 
   return (
     <nav className="bg-blue-600 p-4 text-white shadow-md">
@@ -70,6 +69,9 @@ const Navbar = () => {
               </Link>
               <Link to="/admin/reports" className="hover:text-gray-300 transition">
                 Reports
+              </Link>
+              <Link to="/github" className="hover:text-gray-300 transition">
+                GitHub
               </Link>
             </>
           ) : (
@@ -180,6 +182,9 @@ const Navbar = () => {
               </Link>
               <Link to="/admin/reports" className="block px-3 py-2 hover:bg-blue-700 transition">
                 Reports
+              </Link>
+              <Link to="/github" className="block px-3 py-2 hover:bg-blue-700 transition">
+                GitHub
               </Link>
             </>
           ) : (

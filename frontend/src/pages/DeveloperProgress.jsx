@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardService, taskService } from '../services/utils/api';
+import { dashboardService } from '../services/utils/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import ProgressBar from '../components/ProgressBar';
 
 const DeveloperProgress = () => {
   const [developers, setDevelopers] = useState([]);

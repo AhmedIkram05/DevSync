@@ -16,7 +16,7 @@ class TestGitHubClient(unittest.TestCase):
         self.app = Flask(__name__)
         self.app.config['GITHUB_CLIENT_ID'] = 'test_client_id'
         self.app.config['GITHUB_CLIENT_SECRET'] = 'test_client_secret'
-        self.app.config['GITHUB_REDIRECT_URI'] = 'http://localhost:5000/github/callback'
+        self.app.config['GITHUB_REDIRECT_URI'] = 'http://localhost:8000/github/callback'
         self.app_context = self.app.app_context()
         self.app_context.push()
         self.client = GitHubClient(access_token='test_token')
