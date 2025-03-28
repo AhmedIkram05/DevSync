@@ -4,6 +4,9 @@ import os
 import sys
 from dotenv import load_dotenv
 
+from flask_swagger_ui import get_swaggerui_blueprint
+import yaml 
+
 # Add the backend directory to the Python path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.insert(0, backend_dir)
@@ -40,6 +43,25 @@ def log_routes(app):
 def create_app(config_class=None):
     app = Flask(__name__)
     app.config.from_object(config_class or get_config())
+
+    # Swagger UI Setup
+    SWAGGER_URL = "/api/docs"
+    API_DOCS_PATH = "api/swagger.yaml"
+
+    with open(API_DOCS_PATH, "r") as file:
+        swagger_yaml = yaml.safe_load(file)
+
+    swaggerui_blueprint = get_swaggerui_blueprint(
+        SWAGGER_URL,  # URL to access Swagger UI
+        API_DOCS_PATH,  # API docs path (can be a file or a URL)
+        config={"app_name": "DevSync API"}
+    )
+
+    app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+    @app.route("/api/swagger.yaml")
+    def swagger_yaml():
+        return jsonify(swagger_yaml)
     
     # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///devsync.db')
@@ -51,9 +73,8 @@ def create_app(config_class=None):
     app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
     app.config["JWT_TOKEN_LOCATION"] = ["cookies", "headers"]
     
-    # Fix for JWT cookies when running in development
-    app.config["JWT_COOKIE_SECURE"] = False
-    app.config["JWT_COOKIE_CSRF_PROTECT"] = False  # Disable CSRF for easier development
+    app.config["JWT_COOKIE_SECURE"] = True
+    app.config["JWT_COOKIE_CSRF_PROTECT"] = False
     app.config["JWT_COOKIE_SAMESITE"] = None
     
     # Apply any override configurations
@@ -65,7 +86,6 @@ def create_app(config_class=None):
     migrate = Migrate(app, db)
     jwt = JWTManager(app)
     
-    # Fix CORS configuration - ensure headers aren't duplicated
     CORS(app, 
          supports_credentials=True,
          allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
@@ -74,8 +94,6 @@ def create_app(config_class=None):
          expose_headers=["Content-Type", "Authorization"],
          max_age=600)
     
-    # IMPORTANT: Remove the after_request handler that's duplicating headers
-    # and replace with one that prevents duplicates
     @app.after_request
     def add_cors_headers(response):
         # Only add headers if they don't already exist

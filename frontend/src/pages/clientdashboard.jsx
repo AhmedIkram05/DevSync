@@ -1,356 +1,460 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { dashboardService, notificationService, taskService, githubService } from '../services/utils/api';
-import { Link, useNavigate } from 'react-router-dom';
-import TaskColumns from '../components/TaskColumns';
-import Notifications from '../components/Notifications';
-import GitHubActivity from '../components/GitHubActivity';
-import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
+import { dashboardService } from '../services/utils/api';
+import TaskCard from '../components/TaskCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useAuth } from '../context/AuthContext';
 
-function ClientDashboard() {
-  const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
-  const [dashboardData, setDashboardData] = useState({
-    user: currentUser,
-    tasks: {
-      assigned_count: 0,
-      pending_count: 0, 
-      completed_count: 0,
-      items: []
-    }
-  });
-  const [notifications, setNotifications] = useState([]);
-  const [gitHubActivity, setGitHubActivity] = useState([]);
-  const [gitHubConnected, setGitHubConnected] = useState(false);
+const ClientDashboard = () => {
+  const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { currentUser } = useAuth();
   
-  // Check authentication before proceeding
-  useEffect(() => {
-    // Verify we have a user with token before continuing
-    if (!currentUser) {
-      console.error("No authenticated user found");
-      navigate('/login');
-      return;
-    }
-    
-    // Verify token exists
-    if (!currentUser.token) {
-      console.error("User exists but no token found:", currentUser);
-      setError("Authentication token is missing. Please log in again.");
-      
-      // Auto-logout after a delay
-      setTimeout(() => {
-        logout();
-      }, 3000);
-    }
-  }, [currentUser, navigate, logout]);
-
-  // Define fetchDashboardData with useCallback to avoid recreation on each render
   const fetchDashboardData = useCallback(async () => {
-    // Skip fetch if no auth token is available
-    if (!currentUser?.token) {
-      console.error("Skipping dashboard fetch - no auth token available");
-      return;
-    }
-    
     try {
-      console.log("Fetching dashboard data with token:", 
-                 currentUser.token ? `${currentUser.token.substring(0, 15)}...` : "MISSING");
       setLoading(true);
-      
-      // Fetch dashboard stats
+      console.log("Fetching dashboard data with token:", JSON.stringify(currentUser?.token).substring(0, 20) + "...");
       console.log("Fetching dashboard stats...");
-      const dashboardStats = await dashboardService.getClientDashboardStats();
-      console.log("Dashboard stats received:", dashboardStats);
-      
-      // Fetch tasks
-      console.log("Fetching tasks...");
-      const tasksData = await taskService.getAllTasks();
-      console.log("Tasks received:", tasksData?.length || 0, "tasks");
-      
-      // Fetch notifications
-      console.log("Fetching notifications...");
-      const notificationsData = await notificationService.getNotifications();
-      console.log("Notifications received:", notificationsData?.length || 0, "notifications");
-      
-      // Try to fetch GitHub activity if user has connected their GitHub account
-      console.log("Checking GitHub connection...");
-      let githubActivityData = [];
-      let isConnected = false;
-      
-      try {
-        const connectionStatus = await githubService.checkConnection();
-        isConnected = connectionStatus.connected;
-        console.log("GitHub connection status:", isConnected ? "Connected" : "Not connected");
-        
-        if (connectionStatus.connected) {
-          const repos = await githubService.getUserRepos();
-          if (repos && repos.length > 0) {
-            // If user has GitHub repos, get activity from the first one
-            console.log("Fetching GitHub activity from repo:", repos[0].repo_name);
-            const repoActivity = await githubService.getIssues(repos[0].id);
-            githubActivityData = repoActivity || [];
-            console.log("GitHub activity received:", githubActivityData.length, "items");
-          }
-        }
-      } catch (githubError) {
-        console.warn('Could not fetch GitHub activity:', githubError);
-        // Don't fail the entire dashboard load if GitHub fails
-      }
-      
-      // Update all states at once to prevent race conditions
-      setDashboardData({
-        user: currentUser,
-        stats: dashboardStats || {},
-        tasks: {
-          assigned_count: tasksData.length,
-          pending_count: tasksData.filter(task => task.status !== 'completed').length,
-          completed_count: tasksData.filter(task => task.status === 'completed').length,
-          items: tasksData
-        }
-      });
-      
-      setNotifications(notificationsData || []);
-      setGitHubActivity(githubActivityData);
-      setGitHubConnected(isConnected);
+      const data = await dashboardService.getClientDashboardStats();
+      setDashboardData(data);
       setError(null);
-      console.log("Dashboard data successfully loaded");
-      
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
-      
-      // Handle authentication errors specifically
-      if (err.message && err.message.includes('Authentication token')) {
-        setError('Your session has expired. Please log in again.');
-        
-        // Force logout after a delay
-        setTimeout(() => {
-          logout();
-        }, 3000);
-      } else {
-        setError('Failed to fetch dashboard data. Please try again later.');
-      }
+      console.error("Dashboard fetch error:", err);
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [currentUser, logout]);
+  }, [currentUser]);
   
   useEffect(() => {
-    if (currentUser?.token) {
-      fetchDashboardData();
-    }
-  }, [fetchDashboardData, currentUser]);
-  
-  const handleRefreshDashboard = () => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const handleRefresh = async () => {
     fetchDashboardData();
   };
-  
-  // Show login message if currentUser is missing or doesn't have a token
-  if (!currentUser || !currentUser.token) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center p-6">
-        <div className="text-xl text-red-600 mb-4">
-          Authentication required. Redirecting to login...
-        </div>
-        <div className="mt-4">
-          <button 
-            onClick={() => navigate('/login')}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner size="large" message="Loading your dashboard..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center p-6">
-        <div className="text-xl text-red-600 mb-4">{error}</div>
-        <button 
-          onClick={handleRefreshDashboard}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Retry
-        </button>
-        <div className="mt-4">
-          <button 
-            onClick={() => navigate('/login')}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-          >
-            Back to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Rest of the component remains unchanged
   return (
-    <div className="bg-gray-50 min-h-screen p-4 md:p-8">
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <h1 className="text-2xl font-bold mb-4 md:mb-0">
-            Welcome, {dashboardData?.user?.name || 'Developer'}
-          </h1>
+    <div className="bg-neutral-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900">My Dashboard</h1>
+            <p className="mt-1 text-sm text-neutral-600">
+              View your tasks, projects, and GitHub activity
+            </p>
+          </div>
           
-          <button 
-            onClick={handleRefreshDashboard}
-            className="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
-            disabled={loading}
+          <button
+            onClick={handleRefresh}
+            className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh Dashboard
-              </>
-            )}
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
           </button>
         </div>
-        
-        {/* Tasks Overview Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Tasks Overview</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            {/* ...existing task overview cards... */}
-            <div className="bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="rounded-full bg-blue-100 p-3 mr-4">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{dashboardData?.tasks?.assigned_count || 0}</div>
-                  <div className="text-gray-600">Total Tasks</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="rounded-full bg-yellow-100 p-3 mr-4">
-                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{dashboardData?.tasks?.pending_count || 0}</div>
-                  <div className="text-gray-600">In Progress</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg p-6 shadow hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="rounded-full bg-green-100 p-3 mr-4">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{dashboardData?.tasks?.completed_count || 0}</div>
-                  <div className="text-gray-600">Completed</div>
-                </div>
-              </div>
-            </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <LoadingSpinner size="lg" />
           </div>
-          
-          {/* Task Columns */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Recent Tasks</h3>
-              <Link to="/tasks" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                View All Tasks
-              </Link>
+        ) : error ? (
+          <div className="bg-error-50 p-4 rounded-lg border border-error-300 text-error-800">
+            <div className="flex">
+              <svg className="h-5 w-5 text-error-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p>{error}</p>
             </div>
-            <TaskColumns tasks={dashboardData?.tasks?.items || []} />
+            <button 
+              onClick={handleRefresh}
+              className="mt-3 text-sm font-medium text-error-600 hover:text-error-500"
+            >
+              Try again
+            </button>
           </div>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Notifications Section */}
-          <div className="mb-8 lg:mb-0">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Recent Notifications</h2>
-              <span className="text-sm text-gray-500">
-                {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="bg-white rounded-lg shadow">
-              <Notifications 
-                notifications={notifications} 
-                onNotificationUpdate={fetchDashboardData} 
+        ) : (
+          <div className="space-y-6">
+            {/* Stats Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <StatCard 
+                title="Assigned Tasks" 
+                value={dashboardData?.taskCounts?.assigned || 0} 
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                }
+                color="primary"
+              />
+              
+              <StatCard 
+                title="In Progress" 
+                value={dashboardData?.taskCounts?.inProgress || 0} 
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="warning"
+              />
+              
+              <StatCard 
+                title="Completed" 
+                value={dashboardData?.taskCounts?.completed || 0} 
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="success"
+              />
+              
+              <StatCard 
+                title="Tasks Due Soon" 
+                value={dashboardData?.taskCounts?.dueSoon || 0} 
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                color="error"
               />
             </div>
-          </div>
-          
-          {/* GitHub Activity Section */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">GitHub Activity</h2>
-            <div className="bg-white rounded-lg shadow">
-              {gitHubConnected ? (
-                gitHubActivity.length > 0 ? (
-                  <div className="p-6">
-                    <GitHubActivity activity={gitHubActivity} />
+            
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* My Tasks Section */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-lg shadow-card overflow-hidden h-full">
+                  <div className="px-4 py-5 sm:px-6 border-b border-neutral-200 flex justify-between items-center">
+                    <h3 className="text-lg leading-6 font-medium text-neutral-900">My Tasks</h3>
+                    <Link to="/tasks" className="text-sm text-primary-600 hover:text-primary-500 font-medium">
+                      View all tasks
+                    </Link>
                   </div>
-                ) : (
-                  <div className="p-6 text-center text-gray-500">
-                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p>No recent GitHub activity</p>
-                    <div className="mt-4">
-                      <Link 
-                        to="/github" 
-                        className="inline-block px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
-                      >
-                        View GitHub Repos
-                      </Link>
+                  <div className="overflow-hidden">
+                    <div className="px-4 py-2 border-b border-neutral-200 flex space-x-1">
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">In Progress</span>
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">High Priority</span>
+                      <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Due Soon</span>
+                    </div>
+                    
+                    {/* Task Cards */}
+                    <div className="divide-y divide-neutral-200">
+                      {dashboardData?.recentTasks?.length > 0 ? (
+                        dashboardData.recentTasks.map((task) => (
+                          <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            showProject={true} 
+                            compact={true}
+                          />
+                        ))
+                      ) : (
+                        <div className="p-6 text-center text-neutral-500">
+                          <svg className="mx-auto h-12 w-12 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          <h3 className="mt-2 text-sm font-medium text-neutral-900">No tasks found</h3>
+                          <p className="mt-1 text-sm text-neutral-500">You don't have any tasks assigned yet.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )
-              ) : (
-                <div className="p-6 text-center">
-                  <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-gray-500 mb-4">Connect your GitHub account to track repository activity</p>
-                  <Link 
-                    to="/github" 
-                    className="inline-block px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
-                  >
-                    Connect GitHub
-                  </Link>
                 </div>
-              )}
+              </div>
+
+              {/* Right Side Column */}
+              <div className="space-y-6">
+                {/* GitHub Section */}
+                <div className="bg-white rounded-lg shadow-card overflow-hidden">
+                  <div className="px-4 py-5 sm:px-6 border-b border-neutral-200">
+                    <h3 className="text-lg leading-6 font-medium text-neutral-900">GitHub Activity</h3>
+                  </div>
+                  
+                  {!currentUser.github_connected ? (
+                    <div className="p-6 flex flex-col items-center text-center">
+                      <svg className="h-12 w-12 text-neutral-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                      </svg>
+                      <h3 className="mt-2 text-sm font-medium text-neutral-900">Connect GitHub</h3>
+                      <p className="mt-1 text-sm text-neutral-500">
+                        Link your GitHub account to track contributions and sync tasks with issues.
+                      </p>
+                      <div className="mt-4">
+                        <Link
+                          to="/github"
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        >
+                          Connect Now
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="p-4 border-b border-neutral-100 flex items-center">
+                        <img 
+                          src={`https://github.com/${currentUser.github_username}.png`} 
+                          alt={currentUser.github_username}
+                          className="h-8 w-8 rounded-full"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://avatars.githubusercontent.com/u/0";
+                          }}
+                        />
+                        <div className="ml-3">
+                          <p className="text-sm font-medium text-neutral-900">
+                            @{currentUser.github_username}
+                          </p>
+                          <p className="text-xs text-neutral-500">Connected</p>
+                        </div>
+                      </div>
+                      
+                      {dashboardData?.githubActivity?.length > 0 ? (
+                        <ul className="divide-y divide-neutral-200">
+                          {dashboardData.githubActivity.map((activity, index) => (
+                            <li key={index} className="px-4 py-3 hover:bg-neutral-50">
+                              <div className="flex items-start">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-neutral-900">
+                                    {activity.type === 'issue' ? (
+                                      <span className="mr-1">🔍</span> 
+                                    ) : activity.type === 'pull_request' ? (
+                                      <span className="mr-1">🔀</span>
+                                    ) : (
+                                      <span className="mr-1">📝</span>
+                                    )}
+                                    <a href={activity.url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary-600 hover:text-primary-500">
+                                      {activity.title}
+                                    </a>
+                                  </p>
+                                  <p className="text-xs text-neutral-500">
+                                    {activity.repo} • {new Date(activity.date).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="p-4 text-center text-neutral-500">
+                          <p>No recent GitHub activity</p>
+                        </div>
+                      )}
+                      
+                      <div className="px-4 py-3 bg-neutral-50 text-right">
+                        <Link to="/github" className="text-sm font-medium text-primary-600 hover:text-primary-500">
+                          View all activity
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Projects Section */}
+                <div className="bg-white rounded-lg shadow-card overflow-hidden">
+                  <div className="px-4 py-5 sm:px-6 border-b border-neutral-200">
+                    <h3 className="text-lg leading-6 font-medium text-neutral-900">My Projects</h3>
+                  </div>
+                  
+                  {dashboardData?.projects?.length > 0 ? (
+                    <ul className="divide-y divide-neutral-200">
+                      {dashboardData.projects.map((project) => (
+                        <li key={project.id} className="px-4 py-4 hover:bg-neutral-50">
+                          <Link to={`/projects/${project.id}`}>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-neutral-900">{project.name}</p>
+                              <ProjectStatusBadge status={project.status} />
+                            </div>
+                            <div className="mt-1 flex items-center text-xs text-neutral-500">
+                              <span>{project.task_count} tasks</span>
+                              <span className="mx-1">•</span>
+                              <span>{project.completion_percentage}% complete</span>
+                            </div>
+                            <div className="mt-2 w-full bg-neutral-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-primary-600 h-1.5 rounded-full" 
+                                style={{ width: `${project.completion_percentage}%` }}
+                              ></div>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-6 text-center text-neutral-500">
+                      <p>You are not assigned to any projects yet</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Upcoming Deadlines */}
+                <div className="bg-white rounded-lg shadow-card overflow-hidden">
+                  <div className="px-4 py-5 sm:px-6 border-b border-neutral-200">
+                    <h3 className="text-lg leading-6 font-medium text-neutral-900">Upcoming Deadlines</h3>
+                  </div>
+                  
+                  {dashboardData?.upcomingDeadlines?.length > 0 ? (
+                    <ul className="divide-y divide-neutral-200">
+                      {dashboardData.upcomingDeadlines.map((task) => (
+                        <li key={task.id} className="px-4 py-3 hover:bg-neutral-50">
+                          <Link to={`/tasks/${task.id}`}>
+                            <div className="flex justify-between">
+                              <p className="text-sm font-medium text-neutral-900 truncate">{task.title}</p>
+                              <TaskPriorityBadge priority={task.priority} />
+                            </div>
+                            <div className="mt-1 flex items-center text-xs">
+                              <span className={`${isOverdue(task.due_date) ? 'text-error-600 font-medium' : 'text-neutral-500'}`}>
+                                Due {formatDueDate(task.due_date)}
+                              </span>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-6 text-center text-neutral-500">
+                      <p>No upcoming deadlines</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Helper Components
+const StatCard = ({ title, value, icon, color }) => {
+  const colorClasses = {
+    primary: {
+      bg: 'bg-primary-500',
+      light: 'bg-primary-100',
+      text: 'text-primary-700'
+    },
+    success: {
+      bg: 'bg-success-500',
+      light: 'bg-success-100',
+      text: 'text-success-700'
+    },
+    warning: {
+      bg: 'bg-warning-500',
+      light: 'bg-warning-100',
+      text: 'text-warning-700'
+    },
+    error: {
+      bg: 'bg-error-500',
+      light: 'bg-error-100',
+      text: 'text-error-700'
+    }
+  };
+  
+  const classes = colorClasses[color] || colorClasses.primary;
+
+  return (
+    <div className="bg-white overflow-hidden rounded-lg shadow-card">
+      <div className="p-5">
+        <div className="flex items-center">
+          <div className={`flex-shrink-0 rounded-md ${classes.light} p-3`}>
+            <div className={classes.text}>{icon}</div>
+          </div>
+          <div className="ml-5 w-0 flex-1">
+            <dl>
+              <dt className="text-sm font-medium text-neutral-500 truncate">{title}</dt>
+              <dd>
+                <div className="text-xl font-bold text-neutral-900">{value}</div>
+              </dd>
+            </dl>
           </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+const ProjectStatusBadge = ({ status }) => {
+  let bgColor = '';
+  let textColor = '';
+  
+  switch(status) {
+    case 'active':
+      bgColor = 'bg-green-100';
+      textColor = 'text-green-800';
+      break;
+    case 'completed':
+      bgColor = 'bg-blue-100';
+      textColor = 'text-blue-800';
+      break;
+    case 'on-hold':
+      bgColor = 'bg-yellow-100';
+      textColor = 'text-yellow-800';
+      break;
+    default:
+      bgColor = 'bg-neutral-100';
+      textColor = 'text-neutral-800';
+  }
+  
+  return (
+    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bgColor} ${textColor}`}>
+      {status === 'on-hold' ? 'On Hold' : status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+};
+
+const TaskPriorityBadge = ({ priority }) => {
+  let bgColor = '';
+  let textColor = '';
+  
+  switch(priority) {
+    case 'low':
+      bgColor = 'bg-green-100';
+      textColor = 'text-green-800';
+      break;
+    case 'medium':
+      bgColor = 'bg-yellow-100';
+      textColor = 'text-yellow-800';
+      break;
+    case 'high':
+      bgColor = 'bg-red-100';
+      textColor = 'text-red-800';
+      break;
+    default:
+      bgColor = 'bg-neutral-100';
+      textColor = 'text-neutral-800';
+  }
+  
+  return (
+    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bgColor} ${textColor}`}>
+      {priority.charAt(0).toUpperCase() + priority.slice(1)}
+    </span>
+  );
+};
+
+// Helper functions
+const isOverdue = (dueDate) => {
+  return new Date(dueDate) < new Date();
+};
+
+const formatDueDate = (dueDate) => {
+  const date = new Date(dueDate);
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today';
+  } else if (date.toDateString() === tomorrow.toDateString()) {
+    return 'Tomorrow';
+  } else {
+    return date.toLocaleDateString();
+  }
+};
 
 export default ClientDashboard;

@@ -1,27 +1,35 @@
 const API_URL = 'http://127.0.0.1:8000/api/v1/auth';  // Updated to port 8000 to match backend
+const GITHUB_OAUTH_URL = 'http://127.0.0.1:8000/api/v1/github/auth'; // GitHub OAuth URL
+
+// Helper function to handle fetch with proper error handling
+const fetchWrapper = async (url, options = {}) => {
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include', // Always include cookies
+  });
+  
+  const data = await response.json().catch(() => ({}));
+  
+  if (!response.ok) {
+    const error = new Error(data.message || 'API request failed');
+    error.data = data;
+    error.status = response.status;
+    throw error;
+  }
+  
+  return data;
+};
 
 export const authApi = {
   register: async (userData) => {
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const data = await fetchWrapper(`${API_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userData),
-        credentials: 'include' 
       });
-      
-      // Parse the response JSON regardless of success or failure
-      const data = await response.json();
-      
-      if (!response.ok) {
-        // Create an error with the message from the server and additional response data
-        const error = new Error(data.message || 'Registration failed');
-        error.data = data;
-        error.status = response.status;
-        throw error;
-      }
       
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
@@ -36,25 +44,13 @@ export const authApi = {
   
   login: async (credentials) => {
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const data = await fetchWrapper(`${API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(credentials),
-        credentials: 'include' 
       });
-      
-      // Parse the response JSON regardless of success or failure
-      const data = await response.json();
-      
-      if (!response.ok) {
-        // Create an error with the message from the server and additional response data
-        const error = new Error(data.message || 'Login failed');
-        error.data = data;
-        error.status = response.status;
-        throw error;
-      }
       
       // Log the actual API response to help debug
       console.log("Login API response:", data);
@@ -75,6 +71,14 @@ export const authApi = {
         console.log("Storing user in localStorage:", userToStore);
         
         localStorage.setItem('user', JSON.stringify(userToStore));
+
+        // Redirect to GitHub OAuth if not connected
+        if (!userToStore.github_connected) {
+          console.log("Redirecting to GitHub OAuth...");
+          window.location.href = GITHUB_OAUTH_URL;
+          return; // Stop further execution
+        }
+
         return { ...data, user: userToStore };
       } else {
         console.error("Login response doesn't contain user data:", data);
@@ -88,19 +92,12 @@ export const authApi = {
   
   logout: async () => {
     try {
-      const response = await fetch(`${API_URL}/logout`, {
+      await fetchWrapper(`${API_URL}/logout`, {
         method: 'POST',
-        credentials: 'include'
       });
-
+      
       localStorage.removeItem('user');
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Logout failed');
-      }
-      
-      return await response.json();
+      return { success: true };
     } catch (error) {
       console.error("Logout error:", error);
       // Still remove the user from localStorage even if the API call fails
@@ -134,6 +131,65 @@ export const authApi = {
       // If there's an error parsing, clear the localStorage
       localStorage.removeItem('user');
       return null;
+    }
+  },
+  
+  // New method to refresh the authentication token
+  refreshToken: async () => {
+    try {
+      console.log("Attempting to refresh auth token...");
+      
+      const data = await fetchWrapper(`${API_URL}/refresh-token`, {
+        method: 'POST',
+      });
+      
+      if (data.token) {
+        const currentUser = authApi.getCurrentUser();
+        if (currentUser) {
+          // Update the user data with the new token
+          const updatedUser = {
+            ...currentUser,
+            token: data.token
+          };
+          
+          console.log("Token refreshed successfully, updating user data");
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          return updatedUser;
+        }
+      }
+      
+      throw new Error("Failed to refresh token - no token in response");
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      
+      // If refresh fails with unauthorized, the session is likely completely expired
+      if (error.status === 401) {
+        console.warn("Session expired, clearing user data");
+        localStorage.removeItem('user');
+      }
+      
+      throw error;
+    }
+  },
+  
+  // Check if token needs refresh (simple expiration check)
+  isTokenExpired: () => {
+    try {
+      const user = authApi.getCurrentUser();
+      if (!user || !user.token) return true;
+      
+      // If we have token expiration time in user object
+      if (user.exp) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        // If token expires in less than 5 minutes, consider it expired
+        return currentTime > (user.exp - 300);
+      }
+      
+      // Without expiration info, we can't determine - return false to avoid unnecessary refreshes
+      return false;
+    } catch (error) {
+      console.error("Error checking token expiration:", error);
+      return true;
     }
   },
   

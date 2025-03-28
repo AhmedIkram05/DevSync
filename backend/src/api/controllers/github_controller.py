@@ -67,15 +67,45 @@ def github_callback():
     if not code or not state:
         return jsonify({'message': 'Missing code or state parameter'}), 400
     
-    # Verify state parameter
-    if state not in oauth_states:
-        return jsonify({'message': 'Invalid state parameter'}), 400
-    
-    # Get user_id from saved state
-    user_id = oauth_states[state]['user_id']
-    
-    # Clean up used state
-    del oauth_states[state]
+    try:
+        # First try to find the state in our oauth_states dictionary
+        if state in oauth_states:
+            # This is our internally generated state
+            user_id = oauth_states[state]['user_id']
+            # Clean up used state
+            del oauth_states[state]
+        else:
+            # This might be a URL-safe base64-encoded state from frontend
+            import base64
+            import json
+            
+            # Add padding back if needed for base64 decoding
+            padding = len(state) % 4
+            if padding:
+                state += '=' * (4 - padding)
+                
+            # Replace URL-safe characters back to standard base64
+            state = state.replace('-', '+').replace('_', '/')
+            
+            # Decode the base64 string
+            try:
+                decoded_bytes = base64.b64decode(state)
+                decoded_state = json.loads(decoded_bytes.decode('utf-8'))
+                
+                # Extract the user_id from the decoded state
+                user_id = decoded_state.get('userId')
+                
+                if not user_id:
+                    logger.error("No userId found in decoded state")
+                    return jsonify({'error': 'Invalid state parameter format - missing userId'}), 400
+                    
+                logger.info(f"Successfully decoded state with userId: {user_id}")
+            except Exception as e:
+                logger.error(f"Error decoding state: {str(e)}")
+                return jsonify({'error': 'Invalid state parameter format - decoding error'}), 400
+    except Exception as e:
+        logger.error(f"Error processing state parameter: {str(e)}")
+        return jsonify({'error': 'Invalid state parameter format - processing error'}), 400
     
     # Exchange code for access token
     token_data = GitHubClient.exchange_code_for_token(code)
@@ -113,12 +143,18 @@ def github_callback():
     user = User.query.get(user_id)
     if user and github_profile and 'login' in github_profile:
         user.github_username = github_profile['login']
+        # Mark the user as GitHub connected
+        user.github_connected = True
+        
+        logger.info(f"Updated user {user_id} with GitHub username: {user.github_username}")
     
     db.session.commit()
     
     # Redirect to frontend with success message
     frontend_url = current_app.config.get('FRONTEND_URL', 'http://localhost:3000')
-    return redirect(f"{frontend_url}/github/connected?success=true")
+    redirect_url = f"{frontend_url}/github/connected?success=true&github_username={github_profile.get('login', '')}&user_id={user_id}"
+    logger.info(f"Redirecting to: {redirect_url}")
+    return redirect(redirect_url)
 
 def get_github_repositories():
     """Get repositories for the authenticated user"""

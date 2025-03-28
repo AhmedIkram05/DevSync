@@ -283,11 +283,17 @@ def register_routes(bp):
             current_app.logger.error(f"Error processing GitHub exchange: {str(e)}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @bp.route('/github/connect', methods=['GET'])
+    @bp.route('/github/connect', methods=['GET', 'POST'])
     def github_connect():
         """Public route to initiate GitHub OAuth flow without requiring authentication"""
-        user_id = request.args.get('userId')
-        state = request.args.get('state')
+        # Handle both GET and POST requests
+        if request.method == 'GET':
+            user_id = request.args.get('userId')
+            state = request.args.get('state')
+        else:  # POST
+            data = request.get_json() or {}
+            user_id = data.get('userId')
+            state = data.get('state')
         
         if not user_id:
             return jsonify({'error': 'User ID is required'}), 400

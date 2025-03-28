@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { taskService, githubService } from '../services/utils/api';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import CommentSection from '../components/CommentSection';
 import ProgressBar from '../components/ProgressBar';
 
 function TaskDetailsUser() {

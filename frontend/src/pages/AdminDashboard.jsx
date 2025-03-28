@@ -1,268 +1,278 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardService, taskService } from '../services/utils/api';
+import { dashboardService } from '../services/utils/api';
 import LoadingSpinner from '../components/LoadingSpinner';
-import ProgressBar from '../components/ProgressBar';
+import { useAuth } from '../context/AuthContext';
+
+// StatCard component for dashboard metrics
+const StatCard = ({ title, value, change, icon, color, currentTimeRange }) => {
+  const getColorClasses = (colorName) => {
+    switch (colorName) {
+      case 'primary':
+        return 'bg-primary-50 text-primary-700';
+      case 'secondary':
+        return 'bg-blue-50 text-blue-700';
+      case 'success':
+        return 'bg-green-50 text-green-700';
+      case 'warning':
+        return 'bg-yellow-50 text-yellow-700';
+      case 'error':
+        return 'bg-red-50 text-red-700';
+      default:
+        return 'bg-neutral-50 text-neutral-700';
+    }
+  };
+
+  return (
+    <div className="bg-white overflow-hidden shadow-card rounded-lg">
+      <div className="p-5">
+        <div className="flex items-center">
+          <div className={`flex-shrink-0 rounded-md p-3 ${getColorClasses(color)}`}>
+            {icon}
+          </div>
+          <div className="ml-5 w-0 flex-1">
+            <dl>
+              <dt className="text-sm font-medium text-neutral-500 truncate">{title}</dt>
+              <dd>
+                <div className="text-lg font-medium text-neutral-900">{value}</div>
+              </dd>
+              {change !== undefined && (
+                <dd className="flex items-center text-xs mt-1">
+                  {change > 0 ? (
+                    <span className="flex items-center text-green-600">
+                      <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                      </svg>
+                      {change}% increase
+                    </span>
+                  ) : change < 0 ? (
+                    <span className="flex items-center text-red-600">
+                      <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                      </svg>
+                      {Math.abs(change)}% decrease
+                    </span>
+                  ) : (
+                    <span className="text-neutral-500">No change</span>
+                  )}
+                  <span className="ml-2 text-neutral-500">since last {currentTimeRange}</span>
+                </dd>
+              )}
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState(null);
-  const [recentTasks, setRecentTasks] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [timeRange, setTimeRange] = useState('week'); // 'week', 'month', 'quarter'
+  const { currentUser } = useAuth();
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log("Fetching dashboard data with token:", JSON.stringify(currentUser?.token).substring(0, 20) + "...");
+      console.log("Fetching dashboard stats...");
+      const data = await dashboardService.getAdminDashboardStats(timeRange);
+      setDashboardData(data);
+      setError(null);
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser, timeRange]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        // Fetch admin dashboard statistics
-        const dashboardStats = await dashboardService.getAdminDashboardStats();
-        setStats(dashboardStats);
-        
-        // Fetch recent tasks
-        const tasksData = await taskService.getAllTasks();
-        setRecentTasks(tasksData.slice(0, 5)); // Get 5 most recent tasks
-        
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+  const handleRefresh = () => {
+    fetchDashboardData();
+  };
 
-  if (error) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center p-6">
-        <div className="text-xl text-red-600 mb-4">{error}</div>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-  
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
-      
-      {/* Stats Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Tasks Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 mr-4">
-              <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+    <div className="bg-neutral-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900">Admin Dashboard</h1>
+            <p className="mt-1 text-sm text-neutral-600">
+              Overview of projects, tasks, and team progress
+            </p>
+          </div>
+          
+          <div className="mt-4 md:mt-0 flex space-x-3">
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+            >
+              <option value="week">Last 7 days</option>
+              <option value="month">Last 30 days</option>
+              <option value="quarter">Last 90 days</option>
+            </select>
+            
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Total Tasks</p>
-              <p className="text-2xl font-bold">{stats?.tasks?.total || 0}</p>
-            </div>
+              Refresh
+            </button>
           </div>
         </div>
-        
-        {/* In Progress Tasks Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 mr-4">
-              <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : error ? (
+          <div className="bg-error-50 p-4 rounded-lg border border-error-300 text-error-800">
+            <div className="flex">
+              <svg className="h-5 w-5 text-error-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
+              <p>{error}</p>
             </div>
-            <div>
-              <p className="text-gray-600 text-sm">In Progress</p>
-              <p className="text-2xl font-bold">{stats?.tasks?.in_progress || 0}</p>
+            <button 
+              onClick={handleRefresh}
+              className="mt-3 text-sm font-medium text-error-600 hover:text-error-500"
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard 
+                title="Total Projects" 
+                value={dashboardData?.projects?.total || 0}
+                change={dashboardData?.projects?.change}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                }
+                color="primary"
+                currentTimeRange={timeRange}
+              />
+              
+              <StatCard 
+                title="Active Tasks" 
+                value={dashboardData?.tasks?.active || 0}
+                change={dashboardData?.tasks?.activeChange}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                }
+                color="secondary"
+                currentTimeRange={timeRange}
+              />
+              
+              <StatCard 
+                title="Completed Tasks" 
+                value={dashboardData?.tasks?.completed || 0}
+                change={dashboardData?.tasks?.completedChange}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                }
+                color="success"
+                currentTimeRange={timeRange}
+              />
+              
+              <StatCard 
+                title="Team Members" 
+                value={dashboardData?.users?.total || 0}
+                change={dashboardData?.users?.change}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                }
+                color="warning"
+                currentTimeRange={timeRange}
+              />
+            </div>
+            
+            {/* Project & Task Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Recent projects */}
+              <div className="lg:col-span-1 bg-white rounded-lg shadow-card overflow-hidden">
+                <div className="px-4 py-5 sm:px-6 border-b border-neutral-200 flex justify-between items-center">
+                  <h3 className="text-lg leading-6 font-medium text-neutral-900">Recent Projects</h3>
+                  <Link to="/admin/projects" className="text-sm text-primary-600 hover:text-primary-500">
+                    View all
+                  </Link>
+                </div>
+                <div className="bg-white shadow overflow-hidden">
+                  <ul className="divide-y divide-neutral-200">
+                    {dashboardData?.recentProjects?.length > 0 ? (
+                      dashboardData.recentProjects.map((project) => (
+                        <li key={project.id} className="px-4 py-4 sm:px-6 hover:bg-neutral-50">
+                          <Link to={`/projects/${project.id}`} className="block">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-primary-700 truncate">{project.name}</p>
+                              <div className="ml-2 flex-shrink-0 flex">
+                                {project.status === 'active' && (
+                                  <p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    Active
+                                  </p>
+                                )}
+                                {project.status === 'completed' && (
+                                  <p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Completed
+                                  </p>
+                                )}
+                                {project.status === 'on-hold' && (
+                                  <p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    On Hold
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-2 flex justify-between">
+                              <div className="sm:flex">
+                                <p className="flex items-center text-sm text-neutral-500">
+                                  <svg className="flex-shrink-0 mr-1.5 h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                  </svg>
+                                  {new Date(project.created_at).toLocaleDateString()}
+                                </p>
+                                <p className="mt-2 flex items-center text-sm text-neutral-500">
+                                  <svg className="flex-shrink-0 mr-1.5 h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  {project.task_count} Tasks
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="px-4 py-4 sm:px-6 text-sm text-neutral-500">
+                        No recent projects found.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Completed Tasks Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 mr-4">
-              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Completed</p>
-              <p className="text-2xl font-bold">{stats?.tasks?.done || 0}</p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Users Card */}
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 mr-4">
-              <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-              </svg>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Team Members</p>
-              <p className="text-2xl font-bold">{stats?.users?.total || 0}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Quick Actions Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link to="/admin/create-task" className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-6 rounded-lg text-center flex flex-col items-center">
-            <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Create New Task
-          </Link>
-          <Link to="/admin/developer-progress" className="bg-green-600 hover:bg-green-700 text-white py-4 px-6 rounded-lg text-center flex flex-col items-center">
-            <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-            Developer Progress
-          </Link>
-          <Link to="/admin/reports" className="bg-purple-600 hover:bg-purple-700 text-white py-4 px-6 rounded-lg text-center flex flex-col items-center">
-            <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            Generate Reports
-          </Link>
-          <Link to="/tasks" className="bg-yellow-600 hover:bg-yellow-700 text-white py-4 px-6 rounded-lg text-center flex flex-col items-center">
-            <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-            </svg>
-            View All Tasks
-          </Link>
-        </div>
-      </div>
-      
-      {/* Recent Tasks Section */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Recent Tasks</h2>
-          <Link to="/tasks" className="text-blue-600 hover:text-blue-800">View All</Link>
-        </div>
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {recentTasks.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Task
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assignee
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Progress
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recentTasks.map((task) => (
-                    <tr key={task.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{task.title}</div>
-                        <div className="text-sm text-gray-500">
-                          {task.deadline && `Due: ${new Date(task.deadline).toLocaleDateString()}`}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{task.assignee_name || 'Unassigned'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          task.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {task.status === 'in_progress' ? 'In Progress' : 
-                           task.status === 'todo' ? 'To Do' :
-                           task.status === 'review' ? 'Review' :
-                           task.status === 'backlog' ? 'Backlog' :
-                           task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div 
-                            className={`h-2.5 rounded-full ${
-                              task.progress >= 100 ? 'bg-green-600' : 
-                              task.progress >= 50 ? 'bg-blue-600' : 
-                              task.progress > 0 ? 'bg-yellow-600' : 
-                              'bg-gray-400'
-                            }`}
-                            style={{ width: `${task.progress || 0}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-gray-500 mt-1 block">{task.progress || 0}%</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Link 
-                          to={`/TaskDetailUser/${task.id}`}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          View Details
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="py-6 text-center text-gray-500">No tasks found</div>
-          )}
-        </div>
-      </div>
-      
-      {/* Team Progress Section */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Team Progress Overview</h2>
-          <Link to="/admin/developer-progress" className="text-blue-600 hover:text-blue-800">View Details</Link>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="mb-4">
-            <h3 className="font-medium mb-2">Overall Task Completion</h3>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              {stats?.tasks?.total > 0 && (
-                <div 
-                  className="bg-green-600 h-4 rounded-full" 
-                  style={{ width: `${Math.round((stats.tasks.done / stats.tasks.total) * 100)}%` }}
-                ></div>
-              )}
-            </div>
-            <div className="flex justify-between mt-2 text-sm text-gray-600">
-              <span>{Math.round((stats?.tasks?.done / stats?.tasks?.total) * 100) || 0}% Completed</span>
-              <span>{stats?.tasks?.done || 0} / {stats?.tasks?.total || 0} Tasks</span>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
